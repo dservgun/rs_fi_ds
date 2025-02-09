@@ -1,12 +1,28 @@
 use chrono::{Months, NaiveDate, ParseError};
-use std::cmp::{PartialEq, PartialOrd};
-use assert_approx_eq::assert_approx_eq;
+use std::cmp::PartialEq;
 
 #[derive(Debug, Clone, Copy)]
 enum PaymentSchedule {
     Quarterly,
     SemiAnnual,
     Annual,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct DiscountFactor {
+    term: f32,
+    discount: f32,
+}
+
+/// Market data is assumed to be for the
+/// conventional coupon face value of USD 100.00.
+/// Also assuming that the market data is from today out into the
+/// next terms.
+#[derive(Debug, Clone, Copy)]
+struct MarketData {
+    coupon_rate: f32,
+    term: f32,
+    market_price: f32,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -39,10 +55,9 @@ struct CashFlow {
 }
 
 impl PartialEq for CashFlow {
-  fn eq(&self, other : &Self) -> bool {
-    return self.time == other.time &&
-    (f32::EPSILON < (self.amount - other.amount).abs());
-  }
+    fn eq(&self, other: &Self) -> bool {
+        return self.time == other.time && (f32::EPSILON < (self.amount - other.amount).abs());
+    }
 }
 
 // the principal,
@@ -110,6 +125,20 @@ impl Bond {
             }
         }
     }
+
+    fn get_months_f32(self) -> f32 {
+        match self.payment_schedule {
+            PaymentSchedule::Quarterly => {
+                return 3.0;
+            }
+            PaymentSchedule::SemiAnnual => {
+                return 6.0;
+            }
+            PaymentSchedule::Annual => {
+                return 1.0;
+            }
+        }
+    }
     pub fn payment_intervals(self) -> Vec<NaiveDate> {
         let mut result = Vec::new();
         let mut st = self.issue_date;
@@ -138,9 +167,74 @@ impl Bond {
     }
 }
 
+fn get_months_as_f32(payment_schedule: PaymentSchedule) -> f32 {
+    match payment_schedule {
+        PaymentSchedule::Quarterly => {
+            return 3.0;
+        }
+        PaymentSchedule::SemiAnnual => {
+            return 6.0;
+        }
+        PaymentSchedule::Annual => {
+            return 12.0;
+        }
+    }
+}
+/// Given a table of [MarketData] return a discount factor table.
+pub fn discount_factor(
+    market_data: &Vec<MarketData>,
+    payment_schedule: PaymentSchedule,
+) -> Vec<DiscountFactor> {
+    let mut result: Vec<DiscountFactor> = Vec::new();
+    let months_f32: f32 = get_months_as_f32(payment_schedule);
+    let months_in_year: f32 = 12.0;
+    let interest_factor: f32 = months_in_year / months_f32;
+    let mut counter: f32 = 0.0;
+    for i in 0..market_data.len() {
+        if i == 0 {
+            let numerator: f32 = market_data[i].market_price;
+            let denominator: f32 = (100.0 + (market_data[i].coupon_rate / interest_factor));
+            let init_value: f32 = numerator / denominator;
+            println!(
+                "Using numerator {:?} and denominator {:?}",
+                numerator, denominator,
+            );
+            let df: DiscountFactor = DiscountFactor {
+                term: months_f32 / months_in_year,
+                discount: init_value,
+            };
+            counter = counter + 1.0;
+            result.push(df);
+        } else {
+            let md: MarketData = market_data[i];
+            let mut inter_sigma = 0.0;
+            for i in 0..i {
+                inter_sigma = inter_sigma + (md.coupon_rate / interest_factor) * result[i].discount;
+            }
+            println!("Using intermediate discounts {:?}", inter_sigma);
+            let numerator: f32 = md.market_price - inter_sigma;
+            let denominator: f32 = (100.00 + (md.coupon_rate / interest_factor));
+            let new_value = numerator / denominator;
+            println!(
+                "Using numerator {:?} and denominator {:?}",
+                numerator, denominator,
+            );
+
+            let df: DiscountFactor = DiscountFactor {
+                term: counter * months_f32 / months_in_year,
+                discount: new_value,
+            };
+            result.push(df);
+        }
+        counter = counter + 1.0;
+    }
+    return result;
+}
+
 /// Test code
 mod tests {
     use super::*;
+    use assert_approx_eq::assert_approx_eq;
 
     fn create_test_bond() -> Result<Bond, BondError> {
         return Bond::create_bond(
@@ -150,6 +244,54 @@ mod tests {
             2.5,
             String::from("%m/%d/%Y").as_str(),
         );
+    }
+
+    fn create_test_market_data() -> Vec<MarketData> {
+        let mut result: Vec<MarketData> = Vec::new();
+        let md1 = MarketData {
+            coupon_rate: 2.875,
+            term: 0.5,
+            market_price: 101.4297,
+        };
+        result.push(md1);
+        let md2 = MarketData {
+            coupon_rate: 2.125,
+            term: 1.0,
+            market_price: 102.0662,
+        };
+        result.push(md2);
+        let md3 = MarketData {
+            coupon_rate: 1.625,
+            term: 1.5,
+            market_price: 102.2862,
+        };
+        result.push(md3);
+
+        let md4 = MarketData {
+            coupon_rate: 0.125,
+            term: 2.0,
+            market_price: 99.9538,
+        };
+        let md5 = MarketData {
+            coupon_rate: 0.250,
+            term: 2.5,
+            market_price: 100.0795,
+        };
+        let md6 = MarketData {
+            coupon_rate: 0.250,
+            term: 3.0,
+            market_price: 99.7670,
+        };
+        let md7 = MarketData {
+            coupon_rate: 2.250,
+            term: 3.5,
+            market_price: 106.3091,
+        };
+        result.push(md4);
+        result.push(md5);
+        result.push(md6);
+        result.push(md7);
+        return result;
     }
     #[test]
     fn test_create() {
@@ -190,13 +332,24 @@ mod tests {
             Result::Ok(val) => {
                 let cashflows = val.cashflow();
                 for i in cashflows {
-                  assert_approx_eq!(i.amount, 125.0, f32::EPSILON);
+                    assert_approx_eq!(i.amount, 125.0, f32::EPSILON);
                 }
-
             }
             Result::Err(_) => {
                 panic!("Failed to create bond.");
             }
+        }
+    }
+    #[test]
+    fn test_create_discount_factor() {
+        let market_data: Vec<MarketData> = create_test_market_data();
+        let discount_factor: Vec<DiscountFactor> =
+            discount_factor(&market_data, PaymentSchedule::SemiAnnual);
+        for i in discount_factor {
+            println!(
+                "Discount factor : Term {:?} -> Discount {:?}",
+                i.term, i.discount
+            );
         }
     }
 }
