@@ -194,7 +194,7 @@ pub mod bond {
         for i in 0..market_data.len() {
             if i == 0 {
                 let numerator: f32 = market_data[i].market_price;
-                let denominator: f32 = (100.0 + market_data[i].coupon_rate / interest_factor);
+                let denominator: f32 = 100.0 + market_data[i].coupon_rate / interest_factor;
                 let init_value: f32 = numerator / denominator;
                 println!(
                     "Using numerator {:?} and denominator {:?}",
@@ -215,7 +215,7 @@ pub mod bond {
                 }
                 println!("Using intermediate discounts {:?}", inter_sigma);
                 let numerator: f32 = md.market_price - inter_sigma;
-                let denominator: f32 = (100.00 + (md.coupon_rate / interest_factor));
+                let denominator: f32 = 100.00 + (md.coupon_rate / interest_factor);
                 let new_value = numerator / denominator;
                 println!(
                     "Using numerator {:?} and denominator {:?}",
@@ -239,7 +239,7 @@ mod tests {
     use super::*;
     use assert_approx_eq::assert_approx_eq;
     use bond::{
-        discount_factor, Bond, BondError, DiscountFactor, ErrorType, MarketData, PaymentSchedule,
+        discount_factor, Bond, BondError, DiscountFactor, MarketData, PaymentSchedule,
     };
 
     fn create_test_bond() -> Result<Bond, BondError> {
