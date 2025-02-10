@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 mod bond;
+mod interest_rate_swap;
 #[derive(Debug)]
 pub struct BinTree<T>(Option<Box<BinData<T>>>);
 

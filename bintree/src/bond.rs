@@ -1,133 +1,175 @@
-use chrono::{Months, NaiveDate, ParseError};
-use std::cmp::PartialEq;
+pub mod bond {
+    use chrono::{Months, NaiveDate, ParseError};
+    use std::cmp::PartialEq;
 
-#[derive(Debug, Clone, Copy)]
-enum PaymentSchedule {
-    Quarterly,
-    SemiAnnual,
-    Annual,
-}
-
-#[derive(Debug, Clone, Copy)]
-struct DiscountFactor {
-    term: f32,
-    discount: f32,
-}
-
-/// Market data is assumed to be for the
-/// conventional coupon face value of USD 100.00.
-/// Also assuming that the market data is from today out into the
-/// next terms.
-#[derive(Debug, Clone, Copy)]
-struct MarketData {
-    coupon_rate: f32,
-    term: f32,
-    market_price: f32,
-}
-
-#[derive(Debug, Clone, Copy)]
-enum ErrorType {
-    InvalidDate,
-    InvalidRate,
-    InvalidPrincipal,
-}
-
-#[derive(Debug, Clone)]
-struct BondError {
-    message: String,
-    message_code: ErrorType,
-}
-
-#[derive(Debug, Clone, Copy)]
-struct Bond {
-    principal: f32,
-    issue_date: NaiveDate,
-    maturity_date: NaiveDate,
-    coupon_rate: f32,
-    payment_schedule: PaymentSchedule,
-}
-
-#[derive(Debug, Clone, Copy)]
-struct CashFlow {
-    bond: Bond,
-    time: NaiveDate,
-    amount: f32,
-}
-
-impl PartialEq for CashFlow {
-    fn eq(&self, other: &Self) -> bool {
-        return self.time == other.time && (f32::EPSILON < (self.amount - other.amount).abs());
+    #[derive(Debug, Clone, Copy)]
+    pub enum PaymentSchedule {
+        Quarterly,
+        SemiAnnual,
+        Annual,
     }
-}
 
-// the principal,
-// the term amount.
-// the term rate.
-// Need a struct to capture this, problem 2
+    #[derive(Debug, Clone, Copy)]
+    pub struct DiscountFactor {
+        pub term: f32,
+        pub discount: f32,
+    }
 
-impl Bond {
-    pub fn create_bond(
-        principal: f32,
-        issue_date: &str,
-        maturity_date: &str,
-        rate: f32,
-        date_format: &str,
-    ) -> Result<Bond, BondError> {
-        let m_date: Result<NaiveDate, ParseError> =
-            NaiveDate::parse_from_str(maturity_date, date_format);
-        let i_date: Result<NaiveDate, ParseError> =
-            NaiveDate::parse_from_str(issue_date, date_format);
+    /// Market data is assumed to be for the
+    /// conventional coupon face value of USD 100.00.
+    /// Also assuming that the market data is from today out into the
+    /// next terms.
+    #[derive(Debug, Clone, Copy)]
+    pub struct MarketData {
+        pub coupon_rate: f32,
+        pub term: f32,
+        pub market_price: f32,
+    }
 
-        match (i_date, m_date) {
-            (Ok(i_date_unwrapped), Ok(maturity_date_unwrapped)) => {
-                let b1: Bond = Bond {
-                    principal: principal,
-                    issue_date: i_date_unwrapped,
-                    maturity_date: maturity_date_unwrapped,
-                    coupon_rate: rate,
-                    payment_schedule: PaymentSchedule::SemiAnnual,
+    #[derive(Debug, Clone, Copy)]
+    pub enum ErrorType {
+        InvalidDate,
+        InvalidRate,
+        InvalidPrincipal,
+    }
+
+    #[derive(Debug, Clone)]
+    pub struct BondError {
+        pub message: String,
+        pub message_code: ErrorType,
+    }
+
+    #[derive(Debug, Clone, Copy)]
+    pub struct Bond {
+        pub principal: f32,
+        pub issue_date: NaiveDate,
+        pub maturity_date: NaiveDate,
+        pub coupon_rate: f32,
+        pub payment_schedule: PaymentSchedule,
+    }
+
+    #[derive(Debug, Clone, Copy)]
+    pub struct CashFlow {
+        pub bond: Bond,
+        pub time: NaiveDate,
+        pub amount: f32,
+    }
+
+    impl PartialEq for CashFlow {
+        fn eq(&self, other: &Self) -> bool {
+            return self.time == other.time && (f32::EPSILON < (self.amount - other.amount).abs());
+        }
+    }
+
+    // the principal,
+    // the term amount.
+    // the term rate.
+    // Need a struct to capture this, problem 2
+
+    impl Bond {
+        pub fn create_bond(
+            principal: f32,
+            issue_date: &str,
+            maturity_date: &str,
+            rate: f32,
+            date_format: &str,
+        ) -> Result<Bond, BondError> {
+            let m_date: Result<NaiveDate, ParseError> =
+                NaiveDate::parse_from_str(maturity_date, date_format);
+            let i_date: Result<NaiveDate, ParseError> =
+                NaiveDate::parse_from_str(issue_date, date_format);
+
+            match (i_date, m_date) {
+                (Ok(i_date_unwrapped), Ok(maturity_date_unwrapped)) => {
+                    let b1: Bond = Bond {
+                        principal: principal,
+                        issue_date: i_date_unwrapped,
+                        maturity_date: maturity_date_unwrapped,
+                        coupon_rate: rate,
+                        payment_schedule: PaymentSchedule::SemiAnnual,
+                    };
+                    return Ok(b1);
+                }
+                _ => {
+                    return Err(BondError {
+                        message: String::from("Invalid date"),
+                        message_code: ErrorType::InvalidDate,
+                    });
+                }
+            }
+        }
+        pub fn coupon_payment(self) -> f32 {
+            match self.payment_schedule {
+                PaymentSchedule::SemiAnnual => {
+                    return self.principal * (self.coupon_rate / 2.0);
+                }
+                PaymentSchedule::Quarterly => {
+                    return self.principal * (self.coupon_rate / 4.0);
+                }
+                PaymentSchedule::Annual => {
+                    return self.principal * (self.coupon_rate);
+                }
+            }
+        }
+
+        // Some helper functions
+        fn get_months(self) -> u32 {
+            match self.payment_schedule {
+                PaymentSchedule::SemiAnnual => {
+                    return 6;
+                }
+                PaymentSchedule::Quarterly => {
+                    return 3;
+                }
+                PaymentSchedule::Annual => {
+                    return 1;
+                }
+            }
+        }
+
+        fn get_months_f32(self) -> f32 {
+            match self.payment_schedule {
+                PaymentSchedule::Quarterly => {
+                    return 3.0;
+                }
+                PaymentSchedule::SemiAnnual => {
+                    return 6.0;
+                }
+                PaymentSchedule::Annual => {
+                    return 1.0;
+                }
+            }
+        }
+        pub fn payment_intervals(self) -> Vec<NaiveDate> {
+            let mut result = Vec::new();
+            let mut st = self.issue_date;
+            while st <= self.maturity_date {
+                st = st + Months::new(self.get_months());
+                result.push(st);
+            }
+            println!("{:?}", result);
+            return result;
+        }
+
+        /// Simple cash flow based on the
+        /// Coupon rate and paid out over the year.
+        pub fn cashflow(self) -> Vec<CashFlow> {
+            let intervals = self.payment_intervals();
+            let mut result = Vec::new();
+            for coupon_time in &intervals {
+                let cashflow: CashFlow = CashFlow {
+                    bond: self.clone(),
+                    time: coupon_time.clone(),
+                    amount: self.coupon_payment(),
                 };
-                return Ok(b1);
+                result.push(cashflow);
             }
-            _ => {
-                return Err(BondError {
-                    message: String::from("Invalid date"),
-                    message_code: ErrorType::InvalidDate,
-                });
-            }
-        }
-    }
-    pub fn coupon_payment(self) -> f32 {
-        match self.payment_schedule {
-            PaymentSchedule::SemiAnnual => {
-                return self.principal * (self.coupon_rate / 2.0);
-            }
-            PaymentSchedule::Quarterly => {
-                return self.principal * (self.coupon_rate / 4.0);
-            }
-            PaymentSchedule::Annual => {
-                return self.principal * (self.coupon_rate);
-            }
+            return result;
         }
     }
 
-    // Some helper functions
-    fn get_months(self) -> u32 {
-        match self.payment_schedule {
-            PaymentSchedule::SemiAnnual => {
-                return 6;
-            }
-            PaymentSchedule::Quarterly => {
-                return 3;
-            }
-            PaymentSchedule::Annual => {
-                return 1;
-            }
-        }
-    }
-
-    fn get_months_f32(self) -> f32 {
-        match self.payment_schedule {
+    fn get_months_as_f32(payment_schedule: PaymentSchedule) -> f32 {
+        match payment_schedule {
             PaymentSchedule::Quarterly => {
                 return 3.0;
             }
@@ -135,106 +177,70 @@ impl Bond {
                 return 6.0;
             }
             PaymentSchedule::Annual => {
-                return 1.0;
+                return 12.0;
             }
         }
     }
-    pub fn payment_intervals(self) -> Vec<NaiveDate> {
-        let mut result = Vec::new();
-        let mut st = self.issue_date;
-        while st <= self.maturity_date {
-            st = st + Months::new(self.get_months());
-            result.push(st);
-        }
-        println!("{:?}", result);
-        return result;
-    }
+    /// Given a table of [MarketData] return a discount factor table.
+    pub fn discount_factor(
+        market_data: &Vec<MarketData>,
+        payment_schedule: PaymentSchedule,
+    ) -> Vec<DiscountFactor> {
+        let mut result: Vec<DiscountFactor> = Vec::new();
+        let months_f32: f32 = get_months_as_f32(payment_schedule);
+        let months_in_year: f32 = 12.0;
+        let interest_factor: f32 = months_in_year / months_f32;
+        let mut counter: f32 = 0.0;
+        for i in 0..market_data.len() {
+            if i == 0 {
+                let numerator: f32 = market_data[i].market_price;
+                let denominator: f32 = (100.0 + market_data[i].coupon_rate / interest_factor);
+                let init_value: f32 = numerator / denominator;
+                println!(
+                    "Using numerator {:?} and denominator {:?}",
+                    numerator, denominator,
+                );
+                let df: DiscountFactor = DiscountFactor {
+                    term: months_f32 / months_in_year,
+                    discount: init_value,
+                };
+                counter = counter + 1.0;
+                result.push(df);
+            } else {
+                let md: MarketData = market_data[i];
+                let mut inter_sigma = 0.0;
+                for i in 0..i {
+                    inter_sigma =
+                        inter_sigma + (md.coupon_rate / interest_factor) * result[i].discount;
+                }
+                println!("Using intermediate discounts {:?}", inter_sigma);
+                let numerator: f32 = md.market_price - inter_sigma;
+                let denominator: f32 = (100.00 + (md.coupon_rate / interest_factor));
+                let new_value = numerator / denominator;
+                println!(
+                    "Using numerator {:?} and denominator {:?}",
+                    numerator, denominator,
+                );
 
-    /// Simple cash flow based on the
-    /// Coupon rate and paid out over the year.
-    pub fn cashflow(self) -> Vec<CashFlow> {
-        let intervals = self.payment_intervals();
-        let mut result = Vec::new();
-        for coupon_time in &intervals {
-            let cashflow: CashFlow = CashFlow {
-                bond: self.clone(),
-                time: coupon_time.clone(),
-                amount: self.coupon_payment(),
-            };
-            result.push(cashflow);
-        }
-        return result;
-    }
-}
-
-fn get_months_as_f32(payment_schedule: PaymentSchedule) -> f32 {
-    match payment_schedule {
-        PaymentSchedule::Quarterly => {
-            return 3.0;
-        }
-        PaymentSchedule::SemiAnnual => {
-            return 6.0;
-        }
-        PaymentSchedule::Annual => {
-            return 12.0;
-        }
-    }
-}
-/// Given a table of [MarketData] return a discount factor table.
-pub fn discount_factor(
-    market_data: &Vec<MarketData>,
-    payment_schedule: PaymentSchedule,
-) -> Vec<DiscountFactor> {
-    let mut result: Vec<DiscountFactor> = Vec::new();
-    let months_f32: f32 = get_months_as_f32(payment_schedule);
-    let months_in_year: f32 = 12.0;
-    let interest_factor: f32 = months_in_year / months_f32;
-    let mut counter: f32 = 0.0;
-    for i in 0..market_data.len() {
-        if i == 0 {
-            let numerator: f32 = market_data[i].market_price;
-            let denominator: f32 = (100.0 + (market_data[i].coupon_rate / interest_factor));
-            let init_value: f32 = numerator / denominator;
-            println!(
-                "Using numerator {:?} and denominator {:?}",
-                numerator, denominator,
-            );
-            let df: DiscountFactor = DiscountFactor {
-                term: months_f32 / months_in_year,
-                discount: init_value,
-            };
+                let df: DiscountFactor = DiscountFactor {
+                    term: counter * months_f32 / months_in_year,
+                    discount: new_value,
+                };
+                result.push(df);
+            }
             counter = counter + 1.0;
-            result.push(df);
-        } else {
-            let md: MarketData = market_data[i];
-            let mut inter_sigma = 0.0;
-            for i in 0..i {
-                inter_sigma = inter_sigma + (md.coupon_rate / interest_factor) * result[i].discount;
-            }
-            println!("Using intermediate discounts {:?}", inter_sigma);
-            let numerator: f32 = md.market_price - inter_sigma;
-            let denominator: f32 = (100.00 + (md.coupon_rate / interest_factor));
-            let new_value = numerator / denominator;
-            println!(
-                "Using numerator {:?} and denominator {:?}",
-                numerator, denominator,
-            );
-
-            let df: DiscountFactor = DiscountFactor {
-                term: counter * months_f32 / months_in_year,
-                discount: new_value,
-            };
-            result.push(df);
         }
-        counter = counter + 1.0;
+        return result;
     }
-    return result;
-}
+} // End mod.
 
 /// Test code
 mod tests {
     use super::*;
     use assert_approx_eq::assert_approx_eq;
+    use bond::{
+        discount_factor, Bond, BondError, DiscountFactor, ErrorType, MarketData, PaymentSchedule,
+    };
 
     fn create_test_bond() -> Result<Bond, BondError> {
         return Bond::create_bond(
@@ -293,6 +299,7 @@ mod tests {
         result.push(md7);
         return result;
     }
+
     #[test]
     fn test_create() {
         println!("{:?}", create_test_bond());
