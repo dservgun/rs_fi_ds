@@ -1,6 +1,7 @@
 pub mod bond {
     use chrono::{Months, NaiveDate, ParseError};
-    use std::cmp::PartialEq;
+    use std::cmp::Ordering;
+    use std::cmp::{Eq, Ord, PartialEq, PartialOrd};
 
     #[derive(Debug, Clone, Copy)]
     pub enum PaymentSchedule {
@@ -33,11 +34,12 @@ pub mod bond {
         InvalidPrincipal,
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Copy, Clone)]
     pub struct BondError {
-        pub message: String,
+        pub message: & 'static str,
         pub message_code: ErrorType,
     }
+    
 
     #[derive(Debug, Clone, Copy)]
     pub struct Bond {
@@ -61,6 +63,28 @@ pub mod bond {
         }
     }
 
+    impl Eq for Bond {}
+    impl PartialEq for Bond {
+        fn eq(&self, other: &Self) -> bool {
+            self.maturity_date == other.maturity_date && self.issue_date == other.issue_date
+        }
+    }
+
+    impl Ord for Bond {
+        fn cmp(&self, other: &Self) -> Ordering {
+            let mat_date: Ordering = self.maturity_date.cmp(&other.maturity_date);
+            match (mat_date) {
+                Ordering::Equal => self.issue_date.cmp(&other.issue_date),
+                _ => mat_date,
+            }
+        }
+    }
+    impl PartialOrd for Bond {
+        fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+            Some(self.cmp(other))
+        }
+    }
+
     // the principal,
     // the term amount.
     // the term rate.
@@ -69,7 +93,7 @@ pub mod bond {
     impl Bond {
         pub fn create_bond(
             principal: f32,
-            issue_date: &str,
+            issue_date: &str ,
             maturity_date: &str,
             rate: f32,
             date_format: &str,
@@ -92,7 +116,7 @@ pub mod bond {
                 }
                 _ => {
                     return Err(BondError {
-                        message: String::from("Invalid date"),
+                        message: "Invalid date",
                         message_code: ErrorType::InvalidDate,
                     });
                 }
@@ -250,6 +274,36 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_bond_sort() {
+        let b1: Result<Bond, BondError> = Bond::create_bond(
+            100.0,
+            String::from("04/15/2014").as_str(),
+            String::from("05/15/2024").as_str(),
+            2.5,
+            String::from("%m/%d/%Y").as_str(),
+        );
+
+        let b2: Result<Bond, BondError> = Bond::create_bond(
+            100.0,
+            String::from("03/15/2014").as_str(),
+            String::from("05/15/2024").as_str(),
+            2.5,
+            String::from("%m/%d/%Y").as_str(),
+        );
+        let mut bonds: Vec<Bond> = Vec::new();
+        match (b1, b2) {
+            (Ok(bond1), Ok(bond2)) => {
+                bonds.push(bond1);
+                bonds.push(bond2);
+            }
+            _ => {
+                panic!("Test failed." );
+            }
+        }
+        bonds.sort();
+        assert_eq!(b1.unwrap(), bonds[1]);
+    }
     fn create_test_market_data() -> Vec<MarketData> {
         let mut result: Vec<MarketData> = Vec::new();
         let md1 = MarketData {

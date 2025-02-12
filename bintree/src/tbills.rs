@@ -1,8 +1,8 @@
 mod tbills {
+    use crate::bond::bond::Bond;
     use chrono::NaiveDate;
     use std::cmp::Ordering;
     use std::cmp::{Eq, Ord, PartialEq, PartialOrd};
-    use crate::bond::bond::Bond;
 
     #[derive(Clone, Copy)]
     pub enum TimeIntervalType {

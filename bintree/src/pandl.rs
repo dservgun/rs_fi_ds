@@ -15,8 +15,8 @@ mod pandl {
     }
 
     pub struct PriceStructure {
-        pub pricingDate: NaiveDate,
-        pub termStructure: TermStructure,
+        pub pricing_date: NaiveDate,
+        pub term_structure: TermStructure,
         pub spread: f32,
         pub price: f32,
     }
