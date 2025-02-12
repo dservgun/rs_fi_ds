@@ -2,6 +2,7 @@ mod tbills {
     use chrono::NaiveDate;
     use std::cmp::Ordering;
     use std::cmp::{Eq, Ord, PartialEq, PartialOrd};
+    use crate::bond::bond::Bond;
 
     #[derive(Clone, Copy)]
     pub enum TimeIntervalType {
@@ -21,13 +22,15 @@ mod tbills {
         pub fn valuation(&self) -> f32 {
             match (self.time_interval_type) {
                 TimeIntervalType::Weeks => {
-                    self.face_value * (1.0 - (self.time * 7.0) * (self.discount_rate / (100.0 *360.0)))
+                    self.face_value
+                        * (1.0 - (self.time * 7.0) * (self.discount_rate / (100.0 * 360.0)))
                 }
                 TimeIntervalType::Days => {
                     self.face_value * (1.0 - (self.time) * (self.discount_rate / (100.0 * 360.0)))
                 }
                 TimeIntervalType::Months => {
-                    self.face_value * (1.0 - (self.time * 30.0) * (self.discount_rate / (100.0 *360.0)))
+                    self.face_value
+                        * (1.0 - (self.time * 30.0) * (self.discount_rate / (100.0 * 360.0)))
                 }
             }
         }
