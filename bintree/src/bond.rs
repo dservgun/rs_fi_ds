@@ -48,6 +48,7 @@ pub mod bond {
         pub maturity_date: NaiveDate,
         pub coupon_rate: f32,
         pub payment_schedule: PaymentSchedule,
+        pub reinvestment_interest : Option<f32>
     }
 
     #[derive(Debug, Clone, Copy)]
@@ -92,6 +93,41 @@ pub mod bond {
     // Need a struct to capture this, problem 2
 
     impl Bond {
+
+        pub fn create_bond_reinvestment(
+            principal : f32,
+            issue_date : &str,
+            maturity_date : &str,
+            rate : f32,
+            reinvestment_interest_amount : f32,
+            date_format : &str
+          ) -> Result<Bond, BondError> {
+            let m_date: Result<NaiveDate, ParseError> =
+                NaiveDate::parse_from_str(maturity_date, date_format);
+            let i_date: Result<NaiveDate, ParseError> =
+                NaiveDate::parse_from_str(issue_date, date_format);
+
+            match (i_date, m_date) {
+                (Ok(i_date_unwrapped), Ok(maturity_date_unwrapped)) => {
+                    let b1: Bond = Bond {
+                        principal: principal,
+                        issue_date: i_date_unwrapped,
+                        maturity_date: maturity_date_unwrapped,
+                        coupon_rate: rate,
+                        payment_schedule: PaymentSchedule::SemiAnnual,
+                        reinvestment_interest : Some(reinvestment_interest_amount)
+                    };
+                    return Ok(b1);
+                }
+                _ => {
+                    return Err(BondError {
+                        message: "Invalid date",
+                        message_code: ErrorType::InvalidDate,
+                    });
+                }
+            }
+        }
+
         pub fn create_bond(
             principal: f32,
             issue_date: &str ,
@@ -112,6 +148,7 @@ pub mod bond {
                         maturity_date: maturity_date_unwrapped,
                         coupon_rate: rate,
                         payment_schedule: PaymentSchedule::SemiAnnual,
+                        reinvestment_interest : None
                     };
                     return Ok(b1);
                 }
@@ -125,16 +162,39 @@ pub mod bond {
         }
         pub fn coupon_payment(self) -> f32 {
             match self.payment_schedule {
-                PaymentSchedule::SemiAnnual => {
-                    return self.principal * (self.coupon_rate / 2.0);
-                }
                 PaymentSchedule::Quarterly => {
                     return self.principal * (self.coupon_rate / 4.0);
+                }
+                PaymentSchedule::SemiAnnual => {
+                    return self.principal * (self.coupon_rate / 2.0);
                 }
                 PaymentSchedule::Annual => {
                     return self.principal * (self.coupon_rate);
                 }
             }
+        }
+
+        pub fn reinvestment_amount(self) -> f32 {
+          match self.payment_schedule {
+            PaymentSchedule::Quarterly => {
+              match self.reinvestment_interest {
+                Some(int_value) =>  self.coupon_payment() * int_value / 4.0,
+                None => 0.0
+              }
+            }
+            PaymentSchedule::SemiAnnual => {
+              match self.reinvestment_interest {
+                Some(int_value) => self.coupon_payment() * int_value / 2.0,
+                None => 0.0
+              }
+            }
+            PaymentSchedule::Annual => {
+              match self.reinvestment_interest {
+                Some(int_value) => self.coupon_payment() * int_value,
+                None => 0.0
+              }
+            }
+          }
         }
 
         // Some helper functions
@@ -183,6 +243,7 @@ pub mod bond {
             let mut iter = intervals.into_iter().peekable();
             let mut result = Vec::new();
             while let Some(coupon_time) = iter.next() {
+                println!("Bond : {:?}", self);
                 if (iter.peek().is_none()){
                   let cashflow: CashFlow = CashFlow {
                       bond: self.clone(),
@@ -204,9 +265,29 @@ pub mod bond {
         }
 
         /// Return cash flow between two time intervals
-        pub fn cashflow_between(self, startDate : NaiveDate, endDate : NaiveDate) -> Vec<CashFlow> {
-          let inrange = (|a : &CashFlow| {a.time >= startDate}).and(|a : &CashFlow| {a.time <= endDate});
+        pub fn cashflow_between(self, start_date : NaiveDate, end_date : NaiveDate) -> Vec<CashFlow> {
+          let inrange = (|a : &CashFlow| {a.time >= start_date}).and(|a : &CashFlow| {a.time <= end_date});
           self.cashflow().into_iter().filter(|x| inrange.filter(x)).collect()
+        }
+
+
+        /// Return the reinvestment amount for the coupon payments. The last payment has not yet been
+        /// reinvested.
+
+        pub fn reinvestment_amount_between(self, start_date : NaiveDate, end_date : NaiveDate) -> Vec<f32> {
+          let inrange = (|a : &CashFlow| {a.time >= start_date}).and(|a : &CashFlow| {a.time <= end_date});
+          let cashflows : Vec<CashFlow> = self.cashflow().into_iter().filter(|x| inrange.filter(x)).collect();
+          let mut cashflows_iter = cashflows.into_iter().peekable();
+          let mut result = Vec::new();
+          while let Some(cash_flow) = cashflows_iter.next() {
+            if (cashflows_iter.peek().is_none()) {
+              //Last cashflow, no reinvestment has been done yet.
+            } else {
+              result.push(self.reinvestment_amount())
+            }
+          };
+
+          return result;
         }
     }
 
@@ -277,6 +358,7 @@ pub mod bond {
 } // End mod.
 
 /// Test code
+#[cfg(test)]
 mod tests {
     use super::*;
     use assert_approx_eq::assert_approx_eq;
@@ -436,7 +518,7 @@ mod tests {
                 NaiveDate::parse_from_str("04/15/2014", date_format);
           match(start_date_opt, end_date_opt) {
             (Ok(start_date), Ok(end_date)) => {
-            let mut cashflows = val.cashflow_between(start_date, end_date);
+            let cashflows = val.cashflow_between(start_date, end_date);
             assert_eq!(0, cashflows.len());
             }
             (_, _) => {
@@ -462,7 +544,7 @@ mod tests {
                 NaiveDate::parse_from_str("11/15/2014", date_format);
           match(start_date_opt, end_date_opt) {
             (Ok(start_date), Ok(end_date)) => {
-            let mut cashflows = val.cashflow_between(start_date, end_date);
+            let cashflows = val.cashflow_between(start_date, end_date);
             assert_eq!(1, cashflows.len());
             assert_approx_eq!(125.0, cashflows[0].amount);
             println!("Cashflow {:?}", cashflows);
