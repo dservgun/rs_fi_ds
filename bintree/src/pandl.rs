@@ -36,4 +36,20 @@ mod pandl {
             return 0.0;
         }
     }
+
+    /// Begin with a simple example of an investor
+    /// buys a US 7.625s of 11/15/2022 at 114.8765 on
+    /// Nov 14th, 2020. Later on May 2021 the price of the bond
+    /// is 111.3969. Compute the realized returns.
+    #[derive(Debug, Clone, Copy)]
+    pub struct BondTransaction  {
+      pub underlying : Bond,
+      pub purchaseDate : NaiveDate,
+      pub purchasePrice : f32,
+      pub saleDate : NaiveDate,
+      pub salePrice : NaiveDate
+    }
+
+
+
 }

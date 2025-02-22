@@ -2,7 +2,7 @@ pub mod bond {
     use chrono::{Months, NaiveDate, ParseError};
     use std::cmp::Ordering;
     use std::cmp::{Eq, Ord, PartialEq, PartialOrd};
-
+    use filters::filter::Filter;
     #[derive(Debug, Clone, Copy)]
     pub enum PaymentSchedule {
         Quarterly,
@@ -79,6 +79,7 @@ pub mod bond {
             }
         }
     }
+
     impl PartialOrd for Bond {
         fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
             Some(self.cmp(other))
@@ -178,17 +179,34 @@ pub mod bond {
         /// Simple cash flow based on the
         /// Coupon rate and paid out over the year.
         pub fn cashflow(self) -> Vec<CashFlow> {
-            let intervals = self.payment_intervals();
+            let intervals : &Vec<NaiveDate> = (&self.payment_intervals());
+            let mut iter = intervals.into_iter().peekable();
             let mut result = Vec::new();
-            for coupon_time in &intervals {
-                let cashflow: CashFlow = CashFlow {
-                    bond: self.clone(),
-                    time: coupon_time.clone(),
-                    amount: self.coupon_payment(),
-                };
-                result.push(cashflow);
+            while let Some(coupon_time) = iter.next() {
+                if (iter.peek().is_none()){
+                  let cashflow: CashFlow = CashFlow {
+                      bond: self.clone(),
+                      time: coupon_time.clone(),
+                      amount: self.principal + self.coupon_payment(),
+                  };
+                  result.push(cashflow);
+                } else {
+                  let cashflow: CashFlow = CashFlow {
+                      bond: self.clone(),
+                      time: coupon_time.clone(),
+                      amount: self.coupon_payment(),
+                  };
+                  result.push(cashflow);                  
+                }
+
             }
             return result;
+        }
+
+        /// Return cash flow between two time intervals
+        pub fn cashflow_between(self, startDate : NaiveDate, endDate : NaiveDate) -> Vec<CashFlow> {
+          let inrange = (|a : &CashFlow| {a.time >= startDate}).and(|a : &CashFlow| {a.time <= endDate});
+          self.cashflow().into_iter().filter(|x| inrange.filter(x)).collect()
         }
     }
 
@@ -262,6 +280,8 @@ pub mod bond {
 mod tests {
     use super::*;
     use assert_approx_eq::assert_approx_eq;
+    use chrono::{Months, NaiveDate, ParseError};
+
     use bond::{discount_factor, Bond, BondError, DiscountFactor, MarketData, PaymentSchedule};
 
     fn create_test_bond() -> Result<Bond, BondError> {
@@ -389,9 +409,13 @@ mod tests {
         let b1 = create_test_bond();
         match b1 {
             Result::Ok(val) => {
-                let cashflows = val.cashflow();
-                for i in cashflows {
-                    assert_approx_eq!(i.amount, 125.0, f32::EPSILON);
+                let mut cashflows = val.cashflow().into_iter().peekable();
+                while let Some(cashflow) = cashflows.next() {
+                  if(cashflows.peek().is_none()) {
+                    assert_approx_eq!(cashflow.amount, 225.0, f32::EPSILON);
+                  } else {
+                    assert_approx_eq!(cashflow.amount, 125.0, f32::EPSILON);
+                  }
                 }
             }
             Result::Err(_) => {
@@ -399,6 +423,62 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_cashflow_between1() {
+      let b1 = create_test_bond();
+      let date_format = "%m/%d/%Y";
+      match b1 {
+        Result::Ok(val) => {
+          let start_date_opt: Result<NaiveDate, ParseError> =
+                NaiveDate::parse_from_str("04/15/2014", date_format);
+          let end_date_opt : Result<NaiveDate, ParseError> =
+                NaiveDate::parse_from_str("04/15/2014", date_format);
+          match(start_date_opt, end_date_opt) {
+            (Ok(start_date), Ok(end_date)) => {
+            let mut cashflows = val.cashflow_between(start_date, end_date);
+            assert_eq!(0, cashflows.len());
+            }
+            (_, _) => {
+              panic!("Failed to test cash flows");
+            }
+          }
+        }
+        Result::Err(_) => {
+          panic!("Failed to create bond.")
+        }
+      }      
+    }
+
+    #[test]
+    fn test_cashflow_between2() {
+      let b1 = create_test_bond();
+      let date_format = "%m/%d/%Y";
+      match b1 {
+        Result::Ok(val) => {
+          let start_date_opt: Result<NaiveDate, ParseError> =
+                NaiveDate::parse_from_str("04/15/2014", date_format);
+          let end_date_opt : Result<NaiveDate, ParseError> =
+                NaiveDate::parse_from_str("11/15/2014", date_format);
+          match(start_date_opt, end_date_opt) {
+            (Ok(start_date), Ok(end_date)) => {
+            let mut cashflows = val.cashflow_between(start_date, end_date);
+            assert_eq!(1, cashflows.len());
+            assert_approx_eq!(125.0, cashflows[0].amount);
+            println!("Cashflow {:?}", cashflows);
+            }
+            (_, _) => {
+              panic!("Failed to test cash flows");
+            }
+          }
+        }
+        Result::Err(_) => {
+          panic!("Failed to create bond.")
+        }
+      }      
+    }
+
+
     #[test]
     fn test_create_discount_factor() {
         let market_data: Vec<MarketData> = create_test_market_data();
