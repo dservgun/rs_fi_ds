@@ -361,6 +361,7 @@ pub mod bond {
 } // End mod.
 
 /// Test code
+/// [https://treasurydirect.gov/files/laws-and-regulations/auction-regulations-uoc/auct-reg-gsr-31-cfr-356.pdf]
 #[cfg(test)]
 mod tests {
     use crate::bond::bond::discount_factor;
