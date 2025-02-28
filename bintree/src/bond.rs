@@ -40,6 +40,9 @@ pub mod bond {
         pub message_code: ErrorType,
     }
 
+    /// A bond with an issue date, principal and a maturity date.
+    /// [https://treasurydirect.gov/files/laws-and-regulations/auction-regulations-uoc/auct-reg-gsr-31-cfr-356.pdf]
+
     #[derive(Debug, Clone, Copy)]
     pub struct Bond {
         pub principal: f32,
@@ -360,8 +363,6 @@ pub mod bond {
     }
 } // End mod.
 
-/// Test code
-/// [https://treasurydirect.gov/files/laws-and-regulations/auction-regulations-uoc/auct-reg-gsr-31-cfr-356.pdf]
 #[cfg(test)]
 mod tests {
     use crate::bond::bond::discount_factor;
