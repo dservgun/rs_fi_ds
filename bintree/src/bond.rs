@@ -2,9 +2,10 @@ pub mod bond {
     use chrono::{Months, NaiveDate, ParseError};
     use filters::filter::Filter;
     use std::cmp::Ordering;
+    use log::{info, warn};
     use std::cmp::{Eq, Ord, PartialEq, PartialOrd};
     #[derive(Debug, Clone, Copy)]
-    pub enum PaymentSchedule {
+    pub enum Periodicity {
         Quarterly,
         SemiAnnual,
         Annual,
@@ -41,7 +42,7 @@ pub mod bond {
     }
 
     /// A bond with an issue date, principal and a maturity date.
-    /// [https://treasurydirect.gov/files/laws-and-regulations/auction-regulations-uoc/auct-reg-gsr-31-cfr-356.pdf]
+    /// [CFR | <https://treasurydirect.gov/files/laws-and-regulations/auction-regulations-uoc/auct-reg-gsr-31-cfr-356.pdf>]
 
     #[derive(Debug, Clone, Copy)]
     pub struct Bond {
@@ -49,7 +50,7 @@ pub mod bond {
         pub issue_date: NaiveDate,
         pub maturity_date: NaiveDate,
         pub coupon_rate: f32,
-        pub payment_schedule: PaymentSchedule,
+        pub periodicity: Periodicity,
         pub reinvestment_interest: Option<f32>,
     }
 
@@ -89,103 +90,98 @@ pub mod bond {
         }
     }
 
-    // the principal,
-    // the term amount.
-    // the term rate.
-    // Need a struct to capture this, problem 2
+    pub fn create_bond_with_periodicity(
+      principal : f32,
+      issue_date : &str,
+      maturity_date : &str,
+      rate : f32, reinvestment_interest_rate : f32,
+      periodicity : Periodicity,
+      date_format : &str) -> Result<Bond, BondError> {
+      let m_date : Result<NaiveDate, ParseError> =
+        NaiveDate::parse_from_str(maturity_date, date_format);
+      let i_date : Result<NaiveDate, ParseError> =
+        NaiveDate::parse_from_str(issue_date, date_format);
+      match (i_date, m_date) {
+        (Ok(i_date_unwrapped), Ok(maturity_date_unwrapped)) => {
+          let b1 : Bond = Bond {
+            principal : principal,
+            issue_date : i_date_unwrapped,
+            maturity_date : maturity_date_unwrapped,
+            coupon_rate : rate, 
+            periodicity : periodicity,
+            reinvestment_interest : Some(reinvestment_interest_rate),
+          };
+          return Ok(b1);
+        }
+        _ => {
+          return Err(BondError {
+            message : "Invalid Date",
+            message_code : ErrorType::InvalidDate
+          });
+        }
+      }
+    }
+
+    pub fn create_bond(
+        principal: f32,
+        issue_date: &str,
+        maturity_date: &str,
+        rate: f32,
+        date_format: &str,
+    ) -> Result<Bond, BondError> {
+        let m_date: Result<NaiveDate, ParseError> =
+            NaiveDate::parse_from_str(maturity_date, date_format);
+        let i_date: Result<NaiveDate, ParseError> =
+            NaiveDate::parse_from_str(issue_date, date_format);
+
+        match (i_date, m_date) {
+            (Ok(i_date_unwrapped), Ok(maturity_date_unwrapped)) => {
+                let b1: Bond = Bond {
+                    principal: principal,
+                    issue_date: i_date_unwrapped,
+                    maturity_date: maturity_date_unwrapped,
+                    coupon_rate: rate,
+                    periodicity: Periodicity::SemiAnnual,
+                    reinvestment_interest: None,
+                };
+                return Ok(b1);
+            }
+            _ => {
+                return Err(BondError {
+                    message: "Invalid date",
+                    message_code: ErrorType::InvalidDate,
+                });
+            }
+        }
+    }
 
     impl Bond {
-        pub fn create_bond_reinvestment(
-            principal: f32,
-            issue_date: &str,
-            maturity_date: &str,
-            rate: f32,
-            reinvestment_interest_amount: f32,
-            date_format: &str,
-        ) -> Result<Bond, BondError> {
-            let m_date: Result<NaiveDate, ParseError> =
-                NaiveDate::parse_from_str(maturity_date, date_format);
-            let i_date: Result<NaiveDate, ParseError> =
-                NaiveDate::parse_from_str(issue_date, date_format);
 
-            match (i_date, m_date) {
-                (Ok(i_date_unwrapped), Ok(maturity_date_unwrapped)) => {
-                    let b1: Bond = Bond {
-                        principal: principal,
-                        issue_date: i_date_unwrapped,
-                        maturity_date: maturity_date_unwrapped,
-                        coupon_rate: rate,
-                        payment_schedule: PaymentSchedule::SemiAnnual,
-                        reinvestment_interest: Some(reinvestment_interest_amount),
-                    };
-                    return Ok(b1);
-                }
-                _ => {
-                    return Err(BondError {
-                        message: "Invalid date",
-                        message_code: ErrorType::InvalidDate,
-                    });
-                }
-            }
-        }
-
-        pub fn create_bond(
-            principal: f32,
-            issue_date: &str,
-            maturity_date: &str,
-            rate: f32,
-            date_format: &str,
-        ) -> Result<Bond, BondError> {
-            let m_date: Result<NaiveDate, ParseError> =
-                NaiveDate::parse_from_str(maturity_date, date_format);
-            let i_date: Result<NaiveDate, ParseError> =
-                NaiveDate::parse_from_str(issue_date, date_format);
-
-            match (i_date, m_date) {
-                (Ok(i_date_unwrapped), Ok(maturity_date_unwrapped)) => {
-                    let b1: Bond = Bond {
-                        principal: principal,
-                        issue_date: i_date_unwrapped,
-                        maturity_date: maturity_date_unwrapped,
-                        coupon_rate: rate,
-                        payment_schedule: PaymentSchedule::SemiAnnual,
-                        reinvestment_interest: None,
-                    };
-                    return Ok(b1);
-                }
-                _ => {
-                    return Err(BondError {
-                        message: "Invalid date",
-                        message_code: ErrorType::InvalidDate,
-                    });
-                }
-            }
-        }
         pub fn coupon_payment(self) -> f32 {
-            match self.payment_schedule {
-                PaymentSchedule::Quarterly => {
+            match self.periodicity {
+                Periodicity::Quarterly => {
                     return self.principal * (self.coupon_rate / 4.0);
                 }
-                PaymentSchedule::SemiAnnual => {
+                Periodicity::SemiAnnual => {
                     return self.principal * (self.coupon_rate / 2.0);
                 }
-                PaymentSchedule::Annual => {
+                Periodicity::Annual => {
                     return self.principal * (self.coupon_rate);
                 }
             }
         }
 
         pub fn reinvestment_amount(self) -> f32 {
-            match self.payment_schedule {
-                PaymentSchedule::Quarterly => match self.reinvestment_interest {
+            match self.periodicity {
+                Periodicity::Quarterly => match self.reinvestment_interest {
                     Some(int_value) => self.coupon_payment() * int_value / 4.0,
                     None => 0.0,
                 },
-                PaymentSchedule::SemiAnnual => match self.reinvestment_interest {
+                Periodicity::SemiAnnual => match self.reinvestment_interest {
                     Some(int_value) => self.coupon_payment() * int_value / 2.0,
                     None => 0.0,
                 },
-                PaymentSchedule::Annual => match self.reinvestment_interest {
+                Periodicity::Annual => match self.reinvestment_interest {
                     Some(int_value) => self.coupon_payment() * int_value,
                     None => 0.0,
                 },
@@ -194,33 +190,20 @@ pub mod bond {
 
         // Some helper functions
         fn get_months(self) -> u32 {
-            match self.payment_schedule {
-                PaymentSchedule::SemiAnnual => {
+            match self.periodicity {
+                Periodicity::SemiAnnual => {
                     return 6;
                 }
-                PaymentSchedule::Quarterly => {
+                Periodicity::Quarterly => {
                     return 3;
                 }
-                PaymentSchedule::Annual => {
+                Periodicity::Annual => {
                     return 1;
                 }
             }
         }
 
-        fn get_months_f32(self) -> f32 {
-            match self.payment_schedule {
-                PaymentSchedule::Quarterly => {
-                    return 3.0;
-                }
-                PaymentSchedule::SemiAnnual => {
-                    return 6.0;
-                }
-                PaymentSchedule::Annual => {
-                    return 1.0;
-                }
-            }
-        }
-        pub fn payment_intervals(self) -> Vec<NaiveDate> {
+        pub fn periodicity(self) -> Vec<NaiveDate> {
             let mut result = Vec::new();
             let mut st = self.issue_date;
             while st <= self.maturity_date {
@@ -234,7 +217,7 @@ pub mod bond {
         /// Simple cash flow based on the
         /// Coupon rate and paid out over the year.
         pub fn cashflow(self) -> Vec<CashFlow> {
-            let intervals: &Vec<NaiveDate> = &self.payment_intervals();
+            let intervals: &Vec<NaiveDate> = &self.periodicity();
             let mut iter = intervals.into_iter().peekable();
             let mut result = Vec::new();
             while let Some(coupon_time) = iter.next() {
@@ -297,15 +280,15 @@ pub mod bond {
         }
     }
 
-    fn get_months_as_f32(payment_schedule: PaymentSchedule) -> f32 {
+    fn get_months_as_f32(payment_schedule: Periodicity) -> f32 {
         match payment_schedule {
-            PaymentSchedule::Quarterly => {
+            Periodicity::Quarterly => {
                 return 3.0;
             }
-            PaymentSchedule::SemiAnnual => {
+            Periodicity::SemiAnnual => {
                 return 6.0;
             }
-            PaymentSchedule::Annual => {
+            Periodicity::Annual => {
                 return 12.0;
             }
         }
@@ -313,7 +296,7 @@ pub mod bond {
     /// Given a table of [MarketData] return a discount factor table.
     pub fn discount_factor(
         market_data: &Vec<MarketData>,
-        payment_schedule: PaymentSchedule,
+        payment_schedule: Periodicity,
     ) -> Vec<DiscountFactor> {
         let mut result: Vec<DiscountFactor> = Vec::new();
         let months_f32: f32 = get_months_as_f32(payment_schedule);
@@ -370,12 +353,13 @@ mod tests {
     use crate::bond::bond::BondError;
     use crate::bond::bond::DiscountFactor;
     use crate::bond::bond::MarketData;
-    use crate::bond::bond::PaymentSchedule;
+    use crate::bond::bond::Periodicity;
+    use crate::bond::bond::{create_bond};
     use assert_approx_eq::assert_approx_eq;
     use chrono::{NaiveDate, ParseError};
 
     fn create_test_bond() -> Result<Bond, BondError> {
-        return Bond::create_bond(
+        return create_bond(
             100.0,
             String::from("04/15/2014").as_str(),
             String::from("05/15/2024").as_str(),
@@ -386,7 +370,7 @@ mod tests {
 
     #[test]
     fn test_bond_sort() {
-        let b1: Result<Bond, BondError> = Bond::create_bond(
+        let b1: Result<Bond, BondError> = create_bond(
             100.0,
             String::from("04/15/2014").as_str(),
             String::from("05/15/2024").as_str(),
@@ -394,7 +378,7 @@ mod tests {
             String::from("%m/%d/%Y").as_str(),
         );
 
-        let b2: Result<Bond, BondError> = Bond::create_bond(
+        let b2: Result<Bond, BondError> = create_bond(
             100.0,
             String::from("03/15/2014").as_str(),
             String::from("05/15/2024").as_str(),
@@ -414,6 +398,7 @@ mod tests {
         bonds.sort();
         assert_eq!(b1.unwrap(), bonds[1]);
     }
+    
     fn create_test_market_data() -> Vec<MarketData> {
         let mut result: Vec<MarketData> = Vec::new();
         let md1 = MarketData {
@@ -485,7 +470,7 @@ mod tests {
         let b1 = create_test_bond();
         match b1 {
             Result::Ok(val) => {
-                let intervals = val.payment_intervals();
+                let intervals = val.periodicity();
                 assert_eq!(intervals.len(), 21);
             }
             Result::Err(_) => {
@@ -572,7 +557,7 @@ mod tests {
     fn test_create_discount_factor() {
         let market_data: Vec<MarketData> = create_test_market_data();
         let discount_factor: Vec<DiscountFactor> =
-            discount_factor(&market_data, PaymentSchedule::SemiAnnual);
+            discount_factor(&market_data, Periodicity::SemiAnnual);
         for i in discount_factor {
             println!(
                 "Discount factor : Term {:?} -> Discount {:?}",

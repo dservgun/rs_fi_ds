@@ -50,7 +50,7 @@ mod pandl {
 
     /// Given a term structure, return a 
     pub fn forward_term_structure(structure : Vec<TermStructure>, input : NaiveDate) -> Vec<TermStructure> {
-      
+
       return Vec::new();
     }
 
@@ -110,13 +110,15 @@ mod tests {
     use crate::bond::bond::*;
     use crate::pandl::pandl::*;
 
+
     fn create_test_bond(interest: f32) -> Result<Bond, BondError> {
-        return Bond::create_bond_reinvestment(
+        return create_bond_with_periodicity(
             100.0,
             String::from("11/15/2012").as_str(),
             String::from("11/15/2022").as_str(),
             0.07625,
             interest,
+            Periodicity::SemiAnnual,
             String::from("%m/%d/%Y").as_str(),
         );
     }

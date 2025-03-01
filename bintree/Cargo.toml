@@ -4,6 +4,7 @@ version = "0.1.1"
 edition = "2021"
 
 [dependencies]
+log = "0.4"
 chrono = "0.4.39"
 assert_approx_eq = "1.1.0"
 filters = "0.4.0"

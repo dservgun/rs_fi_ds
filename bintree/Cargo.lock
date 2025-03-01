@@ -36,6 +36,7 @@ dependencies = [
  "assert_approx_eq",
  "chrono",
  "filters",
+ "log",
 ]
 
 [[package]]
