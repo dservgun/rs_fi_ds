@@ -21,25 +21,24 @@ mod pandl {
         pub price: f32,
     }
 
-
     /// The term structure associated with an attribution.
     pub struct TermStructure {
         pub starting_period: NaiveDate,
         pub term: f32, // One of the term values for the bond.
-        pub spot_rate : f32 
+        pub spot_rate: f32,
     }
 
     /// The profit and loss entry for a PandL report.
     pub struct PandLEntry {
-      pub pricing_date : NaiveDate,
-      pub term_structure : Vec<TermStructure>
+        pub pricing_date: NaiveDate,
+        pub term_structure: Vec<TermStructure>,
     }
 
     /// The pand report for a bond at a given date.
     pub struct PandL {
-      pub bond : Bond,
-      pub asof : NaiveDate,
-      pub attribution : Vec<PandLEntry>
+        pub bond: Bond,
+        pub asof: NaiveDate,
+        pub attribution: Vec<PandLEntry>,
     }
 
     impl PriceStructure {
@@ -48,12 +47,13 @@ mod pandl {
         }
     }
 
-    /// Given a term structure, return a 
-    pub fn forward_term_structure(structure : Vec<TermStructure>, input : NaiveDate) -> Vec<TermStructure> {
-
-      return Vec::new();
+    /// Given a term structure, return a
+    pub fn forward_term_structure(
+        structure: Vec<TermStructure>,
+        input: NaiveDate,
+    ) -> Vec<TermStructure> {
+        return Vec::new();
     }
-
 
     /// Begin with a simple example of an investor
     /// buys a US 7.625s of 11/15/2022 at 114.8765 on
@@ -72,7 +72,7 @@ mod pandl {
         pub fn compute_realized_return(&self) -> f32 {
             let cashflows = self
                 .underlying
-                .cashflow_between(self.purchase_date, self.sale_date);
+                .cashflow_between_inclusive(self.purchase_date, self.sale_date);
             let cashflows_sum = cashflows.iter().fold(0.0, |mut sum, val| {
                 sum += val.amount;
                 sum
@@ -109,7 +109,6 @@ mod tests {
 
     use crate::bond::bond::*;
     use crate::pandl::pandl::*;
-
 
     fn create_test_bond(interest: f32) -> Result<Bond, BondError> {
         return create_bond_with_periodicity(

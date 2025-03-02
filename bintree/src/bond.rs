@@ -1,8 +1,7 @@
 pub mod bond {
-    use chrono::{Months, NaiveDate, ParseError};
+    use chrono::{Datelike, Months, NaiveDate, ParseError};
     use filters::filter::Filter;
     use std::cmp::Ordering;
-    use log::{info, warn};
     use std::cmp::{Eq, Ord, PartialEq, PartialOrd};
     #[derive(Debug, Clone, Copy)]
     pub enum Periodicity {
@@ -42,8 +41,41 @@ pub mod bond {
     }
 
     /// A bond with an issue date, principal and a maturity date.
-    /// [CFR | <https://treasurydirect.gov/files/laws-and-regulations/auction-regulations-uoc/auct-reg-gsr-31-cfr-356.pdf>]
+    /// [Regulationss](https://treasurydirect.gov/files/laws-and-regulations/auction-regulations-uoc/auct-reg-gsr-31-cfr-356.pdf)
+    /// Notes are based on Bond Math - Donald J. Smith and Bruce Tuckman.
+    /// ### Some examples
+    /// Example 1 : Suppose I buy a zero coupon corporate bond at 60 but I don't intend to hold this
+    /// bond till maturity, what is the analytics supporting selling the bond after,
+    /// for example 2 years, 3 years etc.
 
+    /// How to compute returns on a bond. Consider for example a zero coupon bond selling at 60 expiring in 10 years.
+    /// ```rust
+    /// let b1 = create_bond(
+    /// principal,
+    /// String::from("04/15/2021").as_str(),
+    /// String::from("04/15/2051").as_str(),
+    /// 0.0,
+    /// String::from("%m/%d/%Y").as_str(),
+    /// );
+    ///
+    /// match b1 {
+    /// Result::Ok(val) => {
+    ///  let result = val.constant_yield_price_trajectory(60.0).into_iter();
+    ///  let annual_returns =
+    ///  result.filter(|(a, _)| a.month() == 4);
+    ///  for i in annual_returns {
+    ///   println!("Price Trajectory {:?}", i);
+    ///  }
+    /// }
+    /// Result::Err(_) => {
+    ///  panic!("Failed to create bond")
+    ///  }
+    /// }
+    /// ```
+    /// ### Some terms and concepts
+    /// Yield is an investor's required rate of return for holding the bond till
+    /// maturity and bear the default risk.
+    ///
     #[derive(Debug, Clone, Copy)]
     pub struct Bond {
         pub principal: f32,
@@ -91,35 +123,37 @@ pub mod bond {
     }
 
     pub fn create_bond_with_periodicity(
-      principal : f32,
-      issue_date : &str,
-      maturity_date : &str,
-      rate : f32, reinvestment_interest_rate : f32,
-      periodicity : Periodicity,
-      date_format : &str) -> Result<Bond, BondError> {
-      let m_date : Result<NaiveDate, ParseError> =
-        NaiveDate::parse_from_str(maturity_date, date_format);
-      let i_date : Result<NaiveDate, ParseError> =
-        NaiveDate::parse_from_str(issue_date, date_format);
-      match (i_date, m_date) {
-        (Ok(i_date_unwrapped), Ok(maturity_date_unwrapped)) => {
-          let b1 : Bond = Bond {
-            principal : principal,
-            issue_date : i_date_unwrapped,
-            maturity_date : maturity_date_unwrapped,
-            coupon_rate : rate, 
-            periodicity : periodicity,
-            reinvestment_interest : Some(reinvestment_interest_rate),
-          };
-          return Ok(b1);
+        principal: f32,
+        issue_date: &str,
+        maturity_date: &str,
+        rate: f32,
+        reinvestment_interest_rate: f32,
+        periodicity: Periodicity,
+        date_format: &str,
+    ) -> Result<Bond, BondError> {
+        let m_date: Result<NaiveDate, ParseError> =
+            NaiveDate::parse_from_str(maturity_date, date_format);
+        let i_date: Result<NaiveDate, ParseError> =
+            NaiveDate::parse_from_str(issue_date, date_format);
+        match (i_date, m_date) {
+            (Ok(i_date_unwrapped), Ok(maturity_date_unwrapped)) => {
+                let b1: Bond = Bond {
+                    principal: principal,
+                    issue_date: i_date_unwrapped,
+                    maturity_date: maturity_date_unwrapped,
+                    coupon_rate: rate,
+                    periodicity: periodicity,
+                    reinvestment_interest: Some(reinvestment_interest_rate),
+                };
+                return Ok(b1);
+            }
+            _ => {
+                return Err(BondError {
+                    message: "Invalid Date",
+                    message_code: ErrorType::InvalidDate,
+                });
+            }
         }
-        _ => {
-          return Err(BondError {
-            message : "Invalid Date",
-            message_code : ErrorType::InvalidDate
-          });
-        }
-      }
     }
 
     pub fn create_bond(
@@ -156,7 +190,6 @@ pub mod bond {
     }
 
     impl Bond {
-
         pub fn coupon_payment(self) -> f32 {
             match self.periodicity {
                 Periodicity::Quarterly => {
@@ -203,9 +236,145 @@ pub mod bond {
             }
         }
 
+        /// Compute the infinitely compounded rate for a specified market rate.
+        pub fn infinitely_compounded_rate(self, market_price: f32) -> f32 {
+            1.0 / self.total_years() * (f32::ln(self.principal / market_price))
+        }
+
+        pub fn rate_for_periodicity(self, periodicity: Periodicity, market_price: f32) -> f32 {
+            let compounded_rate = self.infinitely_compounded_rate(market_price);
+            let prefix = match periodicity {
+                Periodicity::Quarterly => 4.0,
+                Periodicity::SemiAnnual => 2.0,
+                Periodicity::Annual => 1.0,
+            };
+            return prefix * (f32::exp(compounded_rate / prefix) - 1.0);
+        }
+
+        fn total_years(self) -> f32 {
+            self.maturity_date.years_since(self.issue_date).unwrap() as f32
+        }
+
+        fn get_num_periods(self) -> f32 {
+            match self.periodicity {
+                Periodicity::Quarterly => self.total_years() * 4.0,
+                Periodicity::SemiAnnual => self.total_years() * 2.0,
+                Periodicity::Annual => self.total_years(),
+            }
+        }
+
+        fn get_num_periods_for_years(self, years : f32) -> f32 {
+          match self.periodicity {
+            Periodicity::Quarterly => years * 4.0,
+            Periodicity::SemiAnnual => years * 2.0,
+            Periodicity::Annual => years
+          }
+        }
+
+        fn get_periods_per_year(self) -> f32 {
+            match self.periodicity {
+                Periodicity::Quarterly => 4.0,
+                Periodicity::SemiAnnual => 2.0,
+                Periodicity::Annual => 1.0,
+            }
+        }
+
+        fn get_adj_interest_per_period(self) -> f32 {
+            match self.periodicity {
+                Periodicity::Quarterly => self.coupon_rate / 4.0,
+                Periodicity::SemiAnnual => self.coupon_rate / 6.0,
+                Periodicity::Annual => self.coupon_rate / 1.0,
+            }
+        }
+
+        fn adj_interest_per_period(self, ytm: f32) -> f32 {
+            match self.periodicity {
+                Periodicity::Quarterly => ytm / 4.0,
+                Periodicity::SemiAnnual => ytm / 2.0,
+                Periodicity::Annual => ytm,
+            }
+        }
+        pub fn is_zero_coupon_bond(self) -> bool {
+            return (self.coupon_rate - 0.0).abs() < f32::EPSILON;
+        }
+
+        /// Assume the entire period of maturity from the beginning of the
+        /// bond.
+        pub fn yield_to_maturity(self, market_price: f32) -> Option<f32> {
+            if self.is_zero_coupon_bond() {
+                let num_per: f32 = self.get_num_periods();
+                println!("Using num_per {:?}", num_per);
+                let fv = f32::powf(self.principal / market_price, 1.0 / num_per);
+                println!("Fv {:?}", fv);
+                return Some((fv - 1.0) * self.get_periods_per_year());
+            } else {
+                None
+            }
+        }
+
+        pub fn realized_return(self, purchase_price : f32, sale_price : f32, years : f32) -> f32 {
+            let periods : f32 = self.get_num_periods_for_years(years);
+            let rhs : f32 = f32::powf(sale_price / purchase_price, 1.0/periods);
+            return (rhs - 1.0) * self.get_periods_per_year();
+        }
+
+        /// Return the baseline price at a ['market_price'] after ['years'].
+        pub fn at_the_money_yield_trajectory(self, market_price: f32, years: i32) -> f32 {
+            let ytm_option: Option<f32> = self.yield_to_maturity(market_price);
+            match ytm_option {
+                Some(ytm) => {
+                    let intervals: &Vec<NaiveDate> = &self.periodicity();
+                    let interest_rate: f32 = self.adj_interest_per_period(ytm);
+                    let mut iter = intervals.into_iter().peekable();
+                    let mut accum = market_price;
+
+                    while let Some(coupon_time) = iter.next() {
+                        println!("Adding date {:?} accum : {:?}", coupon_time.clone(), accum);
+                        if (self.issue_date.year() - coupon_time.year()).abs() < years {
+                            accum = accum * (1.0 + interest_rate)
+                        } else {
+                            break;
+                        }
+                    }
+
+                    return accum;
+                }
+                None => {
+                    return 0.0;
+                }
+            }
+        }
+
+        /// A useful yardstick is the constant yield price trajectory. This is the path the bond
+        /// take over time to maturity. The trajectory says the following, if the market price is above
+        /// the price point in the trajectory, the investor could sell it.
+        pub fn constant_yield_price_trajectory(self, market_price: f32) -> Vec<(NaiveDate, f32)> {
+            let mut result: Vec<(NaiveDate, f32)> = Vec::new();
+            let ytm_option: Option<f32> = self.yield_to_maturity(market_price);
+            match ytm_option {
+                Some(ytm) => {
+                    let intervals: &Vec<NaiveDate> = &self.periodicity();
+                    let interest_rate: f32 = self.adj_interest_per_period(ytm);
+                    let mut iter = intervals.into_iter().peekable();
+                    let mut accum = market_price;
+                    while let Some(coupon_time) = iter.next() {
+                        println!("Adding date {:?} accum : {:?}", coupon_time.clone(), accum);
+                        result.push((coupon_time.clone(), accum));
+                        accum = accum * (1.0 + interest_rate)
+                    }
+
+                    return result;
+                }
+                None => {
+                    panic!("Failed to compute ytm");
+                }
+            }
+        }
+
         pub fn periodicity(self) -> Vec<NaiveDate> {
             let mut result = Vec::new();
             let mut st = self.issue_date;
+            result.push(st);
             while st <= self.maturity_date {
                 st = st + Months::new(self.get_months());
                 result.push(st);
@@ -244,6 +413,15 @@ pub mod bond {
         /// Return cash flow between two time intervals
         pub fn cashflow_between(self, start_date: NaiveDate, end_date: NaiveDate) -> Vec<CashFlow> {
             let inrange =
+                (|a: &CashFlow| a.time > start_date).and(|a: &CashFlow| a.time <= end_date);
+            self.cashflow()
+                .into_iter()
+                .filter(|x| inrange.filter(x))
+                .collect()
+        }
+
+        pub fn cashflow_between_inclusive(self, start_date: NaiveDate, end_date: NaiveDate) -> Vec<CashFlow> {
+            let inrange =
                 (|a: &CashFlow| a.time >= start_date).and(|a: &CashFlow| a.time <= end_date);
             self.cashflow()
                 .into_iter()
@@ -251,9 +429,8 @@ pub mod bond {
                 .collect()
         }
 
-        /// Return the reinvestment amount for the coupon payments. The last payment has not yet been
-        /// reinvested.
-
+        /// Return the reinvestment amount for the coupon payments. Note: The last payment
+        /// will be reinvested in the next term.
         pub fn reinvestment_amount_between(
             self,
             start_date: NaiveDate,
@@ -293,7 +470,10 @@ pub mod bond {
             }
         }
     }
-    /// Given a table of [MarketData] return a discount factor table.
+
+    
+    /// Given a table of ['MarketData'] return a discount factor table to be used for
+    /// subsequent computations.
     pub fn discount_factor(
         market_data: &Vec<MarketData>,
         payment_schedule: Periodicity,
@@ -348,15 +528,33 @@ pub mod bond {
 
 #[cfg(test)]
 mod tests {
+    use crate::bond::bond::create_bond;
     use crate::bond::bond::discount_factor;
     use crate::bond::bond::Bond;
     use crate::bond::bond::BondError;
     use crate::bond::bond::DiscountFactor;
     use crate::bond::bond::MarketData;
     use crate::bond::bond::Periodicity;
-    use crate::bond::bond::{create_bond};
     use assert_approx_eq::assert_approx_eq;
-    use chrono::{NaiveDate, ParseError};
+    use chrono::{Datelike, NaiveDate, ParseError};
+
+    fn create_zcb_principal_maturity(
+        principal: f32,
+        issue_date: &str,
+        mat_date: &str,
+    ) -> Result<Bond, BondError> {
+        return create_bond(principal, issue_date, mat_date, 0.0, "%m/%d/%Y");
+    }
+
+    fn create_zcb(principal: f32) -> Result<Bond, BondError> {
+        return create_bond(
+            principal,
+            String::from("04/15/2021").as_str(),
+            String::from("04/15/2051").as_str(),
+            0.0,
+            String::from("%m/%d/%Y").as_str(),
+        );
+    }
 
     fn create_test_bond() -> Result<Bond, BondError> {
         return create_bond(
@@ -398,7 +596,7 @@ mod tests {
         bonds.sort();
         assert_eq!(b1.unwrap(), bonds[1]);
     }
-    
+
     fn create_test_market_data() -> Vec<MarketData> {
         let mut result: Vec<MarketData> = Vec::new();
         let md1 = MarketData {
@@ -471,7 +669,7 @@ mod tests {
         match b1 {
             Result::Ok(val) => {
                 let intervals = val.periodicity();
-                assert_eq!(intervals.len(), 21);
+                assert_eq!(intervals.len(), 22);
             }
             Result::Err(_) => {
                 panic!("Failed to create bond.");
@@ -563,6 +761,82 @@ mod tests {
                 "Discount factor : Term {:?} -> Discount {:?}",
                 i.term, i.discount
             );
+        }
+    }
+
+    #[test]
+    fn test_ytm_zcb() {
+        let b1 = create_zcb(1000.0);
+        match b1 {
+            Result::Ok(val) => {
+                let ytm = val.yield_to_maturity(50.00).unwrap();
+                assert_approx_eq!(ytm, 0.10239267, f32::EPSILON);
+            }
+            Result::Err(_) => {
+                panic!("Failed to create bond.");
+            }
+        }
+    }
+
+    #[test]
+    fn test_ytm_trajectory() {
+        let b1 = create_zcb_principal_maturity(100.0, "04/15/2021", "04/15/2031");
+        match b1 {
+            Result::Ok(val) => {
+                let result = val.constant_yield_price_trajectory(60.0).into_iter();
+                let annual_returns = result.filter(|(a, _)| a.month() == 4);
+                for i in annual_returns {
+                    println!("Price Trajectory {:?}", i);
+                }
+            }
+            Result::Err(_) => {
+                panic!("Failed to create bond")
+            }
+        }
+    }
+
+
+
+    /// This test case shows the return on investment after 2 years the 
+    /// at the money yield is
+    /// ```rust
+    /// atm = 66.45397
+    /// sale price = 68
+    /// yield = 4.879 %
+    /// realized rate of return = 6.357
+    /// ```
+    #[test]
+    fn test_ytm_at_the_money_1() {
+        let b1 = create_zcb_principal_maturity(100.0, "04/15/2021", "04/15/2031");
+        match b1 {
+            Result::Ok(val) => {
+                let result = val.at_the_money_yield_trajectory(60.0, 2);
+                assert_approx_eq!(66.45397, result, f32::EPSILON);
+                let realized_return = val.realized_return(60.0, 68.0, 2.0);
+                assert_approx_eq!(0.063570976, realized_return, f32::EPSILON);
+            }
+            Err(_) => {
+                panic!("Failed to create bond");
+            }
+        }
+    }
+    #[test]
+    fn test_infinite_compounding() {
+        let b1 = create_zcb_principal_maturity(100.0, "04/15/2021", "04/15/2031");
+        match b1 {
+            Result::Ok(val) => {
+                let inf_compounded_rate = val.infinitely_compounded_rate(60.0);
+                assert_approx_eq!(inf_compounded_rate, 0.05108256, f32::EPSILON);
+                let mut rate_for_per = val.rate_for_periodicity(Periodicity::Quarterly, 60.0);
+                assert_approx_eq!(rate_for_per, 0.0514102, f32::EPSILON);
+                rate_for_per = val.rate_for_periodicity(Periodicity::Annual, 60.00);
+                assert_approx_eq!(rate_for_per, 0.052409768);
+                rate_for_per = val.rate_for_periodicity(Periodicity::SemiAnnual, 60.00);
+                assert_approx_eq!(rate_for_per, 0.051740408);
+            }
+            Err(_) => {
+                panic!("Failed to create bond");
+            }
         }
     }
 }

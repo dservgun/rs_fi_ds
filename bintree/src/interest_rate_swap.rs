@@ -50,7 +50,7 @@ mod interest_rate_swap {
     }
     impl Eq for InterestRateData {}
 
-    fn compute_variable_side(irs: &IRS, overnight_data: &Vec<InterestRateData>, days : f32) -> f32 {
+    fn compute_variable_side(irs: &IRS, overnight_data: &Vec<InterestRateData>, days: f32) -> f32 {
         let mut result: f32 = 0.0;
         let days_in_year: f32 = match irs.accounting_convention {
             AccountingConvention::AC360 => 360.0,
@@ -64,7 +64,7 @@ mod interest_rate_swap {
                 );
             }
             if (result - 0.0).abs() < f32::EPSILON {
-                result =  irs.face_value * (i.rate / (days_in_year * 100.0));
+                result = irs.face_value * (i.rate / (days_in_year * 100.0));
             } else {
                 result = result * (1.0 + i.rate / (days_in_year * 100.0));
             }
@@ -72,22 +72,25 @@ mod interest_rate_swap {
         return result;
     }
 
-
-    pub fn price_irs_at(irs: &IRS, overnight_data: &Vec<InterestRateData>, days : f32) -> f32 {
+    pub fn price_irs_at(irs: &IRS, overnight_data: &Vec<InterestRateData>, days: f32) -> f32 {
         match irs.accounting_convention {
             AccountingConvention::AC360 => {
-                let fixed_side: f32 = irs.face_value * (1.0 + (irs.fixed_rate / 100.0) * days / 360.0) -
-                  irs.face_value;
-                let variable_side: f32 =
-                    compute_variable_side(irs, overnight_data, days);
-                println!("Variable side {:?} fixed_side {:?}", variable_side, fixed_side);
+                let fixed_side: f32 = irs.face_value
+                    * (1.0 + (irs.fixed_rate / 100.0) * days / 360.0)
+                    - irs.face_value;
+                let variable_side: f32 = compute_variable_side(irs, overnight_data, days);
+                println!(
+                    "Variable side {:?} fixed_side {:?}",
+                    variable_side, fixed_side
+                );
                 return variable_side - fixed_side;
             }
             AccountingConvention::AC365 => {
                 let fixed_side: f32 =
                     irs.face_value * (1.0 + (irs.fixed_rate / 100.0) * days / 365.0);
-                let variable_side: f32 =
-                    (irs.face_value * compute_variable_side(irs, overnight_data, days)) - irs.face_value;
+                let variable_side: f32 = (irs.face_value
+                    * compute_variable_side(irs, overnight_data, days))
+                    - irs.face_value;
                 return variable_side - fixed_side;
             }
         }
@@ -156,7 +159,7 @@ mod tests {
         let mut interest_rate_data = Vec::new();
         let mut start_date = NaiveDate::from_ymd_opt(2024, 1, 1).unwrap();
         let mut v1: u32 = 0;
-        for _day in 0..10 {            
+        for _day in 0..10 {
             let ir: InterestRateData = InterestRateData {
                 time: start_date,
                 rate: 0.1120,
@@ -177,5 +180,4 @@ mod tests {
         let valuation: f32 = price_irs_at(&irs, &mut interest_rate_data, 1.0);
         assert_approx_eq!(valuation, 0.00, 1.0);
     }
-
 }
