@@ -3,6 +3,7 @@ pub mod bond {
     use filters::filter::Filter;
     use std::cmp::Ordering;
     use std::cmp::{Eq, Ord, PartialEq, PartialOrd};
+
     #[derive(Debug, Clone, Copy)]
     pub enum Periodicity {
         Quarterly,

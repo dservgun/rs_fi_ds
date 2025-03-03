@@ -7,7 +7,7 @@ pub mod spot_rates {
     pub fn discount_factors(
         market_data: Vec<f32>,
         periodicity: Periodicity,
-        numberOfDays: f32,
+        number_of_days: f32,
         term: f32,
     ) -> Vec<DiscountFactor> {
         let mut result: Vec<DiscountFactor> = Vec::new();

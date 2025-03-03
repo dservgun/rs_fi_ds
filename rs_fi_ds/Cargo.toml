@@ -10,3 +10,8 @@ assert_approx_eq = "1.1.0"
 filters = "0.4.0"
 datafusion = "45.0.0"
 tokio = {version = "1.43", features = ["rt", "macros", "sync", "rt-multi-thread"]}
+actix-web = "^4"
+serde = {version = "^1", featurues = ["derive"]}
+env_logger = "0.8"
+strum_macros = "^0.24"
+strum = {version = "^0.24", features = ["derive"]}
