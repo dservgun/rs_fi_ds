@@ -75,7 +75,14 @@ pub mod bond {
     /// ### Some terms and concepts
     /// Yield is an investor's required rate of return for holding the bond till
     /// maturity and bear the default risk.
-    ///
+    /// ### Some relationships
+    /// #### The relationship between coupon rate and the yield to maturity.
+    ///   * If the *coupon rate* = *yield to maturity* the bond is priced at par.
+    ///   * If the *coupon rate* < *yield to maturity* the bond is priced at a discount.
+    ///   * If the *coupon rate* > *yield to maturity* the bond is priced at a premium.
+    /// These above rules apply only on the coupon dates and the rest of the dates need to account for
+    /// accrued interest on the bond.
+
     #[derive(Debug, Clone, Copy)]
     pub struct Bond {
         pub principal: f32,
@@ -263,12 +270,12 @@ pub mod bond {
             }
         }
 
-        fn get_num_periods_for_years(self, years : f32) -> f32 {
-          match self.periodicity {
-            Periodicity::Quarterly => years * 4.0,
-            Periodicity::SemiAnnual => years * 2.0,
-            Periodicity::Annual => years
-          }
+        fn get_num_periods_for_years(self, years: f32) -> f32 {
+            match self.periodicity {
+                Periodicity::Quarterly => years * 4.0,
+                Periodicity::SemiAnnual => years * 2.0,
+                Periodicity::Annual => years,
+            }
         }
 
         fn get_periods_per_year(self) -> f32 {
@@ -312,9 +319,9 @@ pub mod bond {
             }
         }
 
-        pub fn realized_return(self, purchase_price : f32, sale_price : f32, years : f32) -> f32 {
-            let periods : f32 = self.get_num_periods_for_years(years);
-            let rhs : f32 = f32::powf(sale_price / purchase_price, 1.0/periods);
+        pub fn realized_return(self, purchase_price: f32, sale_price: f32, years: f32) -> f32 {
+            let periods: f32 = self.get_num_periods_for_years(years);
+            let rhs: f32 = f32::powf(sale_price / purchase_price, 1.0 / periods);
             return (rhs - 1.0) * self.get_periods_per_year();
         }
 
@@ -343,6 +350,43 @@ pub mod bond {
                     return 0.0;
                 }
             }
+        }
+
+        fn market_price_at_date(self, ytm: f32, at_date: NaiveDate) -> f32 {
+            let intervals: &Vec<NaiveDate> = &self.periodicity();
+            let interest_rate: f32 = self.adj_interest_per_period(ytm);
+            let mut iter = intervals.into_iter().peekable();
+            let mut accum = 0.0;
+            let mut counter = 0;
+
+            while let Some(coupon_time) = iter.next() {
+                println!(
+                    "Bond : {:?} Coupon time {:?} compare {:?} using {:?}",
+                    self, coupon_time, at_date, interest_rate
+                );
+                if *coupon_time >= at_date {
+                    let den = f32::powf(1.0 + interest_rate, counter as f32);
+                    println!("Time value {:?}", den);
+                    if iter.peek().is_none() {
+                        accum = accum + (self.coupon_rate + self.principal) / den;
+                    } else {
+                        accum = accum + (self.coupon_rate / den);
+                    }
+                }
+                counter = counter + 1;
+            }
+            return accum;
+        }
+
+        pub fn market_price_trajectory(self, ytm: f32) -> Vec<(NaiveDate, f32)> {
+            let intervals: &Vec<NaiveDate> = &self.periodicity();
+            let mut iter = intervals.into_iter().peekable();
+            let mut result = Vec::new();
+            while let Some(coupon_time) = iter.next() {
+                let mp = self.market_price_at_date(ytm, coupon_time.clone());
+                result.push((coupon_time.clone(), mp));
+            }
+            return result;
         }
 
         /// A useful yardstick is the constant yield price trajectory. This is the path the bond
@@ -420,7 +464,11 @@ pub mod bond {
                 .collect()
         }
 
-        pub fn cashflow_between_inclusive(self, start_date: NaiveDate, end_date: NaiveDate) -> Vec<CashFlow> {
+        pub fn cashflow_between_inclusive(
+            self,
+            start_date: NaiveDate,
+            end_date: NaiveDate,
+        ) -> Vec<CashFlow> {
             let inrange =
                 (|a: &CashFlow| a.time >= start_date).and(|a: &CashFlow| a.time <= end_date);
             self.cashflow()
@@ -471,7 +519,6 @@ pub mod bond {
         }
     }
 
-    
     /// Given a table of ['MarketData'] return a discount factor table to be used for
     /// subsequent computations.
     pub fn discount_factor(
@@ -489,8 +536,8 @@ pub mod bond {
                 let denominator: f32 = 100.0 + market_data[i].coupon_rate / interest_factor;
                 let init_value: f32 = numerator / denominator;
                 println!(
-                    "Using numerator {:?} and denominator {:?}",
-                    numerator, denominator,
+                    "Using numerator {:?} and denominator {:?} discount_factor {:?}",
+                    numerator, denominator, init_value
                 );
                 let df: DiscountFactor = DiscountFactor {
                     term: months_f32 / months_in_year,
@@ -778,6 +825,58 @@ mod tests {
         }
     }
 
+    fn internal_yield_2() -> Vec<(NaiveDate, f32)> {
+        let b1 = create_bond(
+            100.00,
+            String::from("04/15/2021").as_str(),
+            String::from("04/15/2051").as_str(),
+            6.00,
+            String::from("%m/%d/%Y").as_str(),
+        );
+        let constant_yield = 0.2;
+        match b1 {
+            Result::Ok(val) => val.market_price_trajectory(constant_yield),
+            Result::Err(err) => {
+                panic!("Failed to create bond {:?}", err);
+            }
+        }
+    }
+
+    fn internal_yield_1() -> Vec<(NaiveDate, f32)> {
+        let b1 = create_bond(
+            100.00,
+            String::from("04/15/2021").as_str(),
+            String::from("04/15/2041").as_str(),
+            6.00,
+            String::from("%m/%d/%Y").as_str(),
+        );
+        let constant_yield = 0.20;
+        match b1 {
+            Result::Ok(val) => val.market_price_trajectory(constant_yield),
+            Result::Err(err) => {
+                panic!("Failed to create bond {:?}", err);
+            }
+        }
+    }
+
+    #[test]
+    fn test_fixed_yield() {
+        let mut y1 = internal_yield_1();
+        let y2 = internal_yield_2();
+        for i in y1.len()..y2.len() {
+            let new_entry = (y2[i].0, 0.0);
+            y1.push(new_entry);
+        }
+
+        for i in 0..y1.len() {
+            let compare = y1[i].1 - y2[i].1;
+            println!(
+                "20 year - 30 year @ {:?} {:?} {:?} {:?}",
+                y1[i].0, y1[i].1, y2[i].1, compare
+            );
+        }
+    }
+
     #[test]
     fn test_ytm_trajectory() {
         let b1 = create_zcb_principal_maturity(100.0, "04/15/2021", "04/15/2031");
@@ -795,9 +894,7 @@ mod tests {
         }
     }
 
-
-
-    /// This test case shows the return on investment after 2 years the 
+    /// This test case shows the return on investment after 2 years the
     /// at the money yield is
     /// ```rust
     /// atm = 66.45397
