@@ -1,8 +1,10 @@
 pub mod bond {
     use chrono::{Datelike, Months, NaiveDate, ParseError};
+    use log::{info, warn, debug};
     use filters::filter::Filter;
     use std::cmp::Ordering;
     use std::cmp::{Eq, Ord, PartialEq, PartialOrd};
+    use serde::{Serialize, Deserialize};
 
     #[derive(Debug, Clone, Copy)]
     pub enum Periodicity {
@@ -11,7 +13,7 @@ pub mod bond {
         Annual,
     }
 
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     pub struct DiscountFactor {
         pub term: f32,
         pub discount: f32,
@@ -553,11 +555,11 @@ pub mod bond {
                     inter_sigma =
                         inter_sigma + (md.coupon_rate / interest_factor) * result[i].discount;
                 }
-                println!("Using intermediate discounts {:?}", inter_sigma);
+                debug!("Using intermediate discounts {:?}", inter_sigma);
                 let numerator: f32 = md.market_price - inter_sigma;
                 let denominator: f32 = 100.00 + (md.coupon_rate / interest_factor);
                 let new_value = numerator / denominator;
-                println!(
+                debug!(
                     "Using numerator {:?} and denominator {:?}",
                     numerator, denominator,
                 );

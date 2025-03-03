@@ -5,6 +5,7 @@ pub mod data_loader {
     use datafusion::error::*;
     use datafusion::prelude::*;
     use std::str::FromStr;
+    use log::{info, warn, debug};
 
     pub async fn load_market_data(file_name: String) -> Result<Vec<MarketData>> {
         let ctx = SessionContext::new();
@@ -12,7 +13,6 @@ pub mod data_loader {
         let batches: Vec<RecordBatch> = df.collect().await?;
         let mut result: Vec<MarketData> = Vec::new();
         for batch in batches {
-            println!("processing {:?}", batch);
             let num_rows = batch.num_rows();
             let coupons = match batch.column_by_name("Coupon") {
                 Some(col) => col.as_any().downcast_ref::<array::Float64Array>(),
@@ -42,7 +42,7 @@ pub mod data_loader {
                         None => 0.0,
                     },
                 };
-                println!("Adding {:?}", m);
+                debug!("Adding {:?}", m);
                 result.push(m);
             }
         }
