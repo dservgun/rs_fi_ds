@@ -2,12 +2,7 @@ mod interest_rate_swap {
     use chrono::NaiveDate;
     use std::cmp::Ordering;
     use std::cmp::{Eq, Ord, PartialEq, PartialOrd};
-
-    #[derive(Debug, PartialEq, Eq, PartialOrd)]
-    pub enum OvernightRateType {
-        SOFR,
-        SONIA,
-    }
+    use crate::rates::rates::OvernightRateType;
 
     #[derive(Debug, PartialEq, Eq, PartialOrd)]
     pub enum AccountingConvention {
@@ -99,12 +94,15 @@ mod interest_rate_swap {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+
+use super::*;
     use assert_approx_eq::assert_approx_eq;
     use chrono::{Days, NaiveDate};
     use interest_rate_swap::price_irs_at;
     use interest_rate_swap::InterestRateData;
-    use interest_rate_swap::{AccountingConvention, OvernightRateType, IRS};
+    use interest_rate_swap::AccountingConvention;
+    use interest_rate_swap::IRS;
+    use crate::rates::rates::OvernightRateType;
 
     #[test]
     fn test_price_irs() {

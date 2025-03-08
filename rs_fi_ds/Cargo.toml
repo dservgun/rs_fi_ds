@@ -2,10 +2,10 @@
 name = "rs_fi_ds"
 version = "0.2.0"
 edition = "2021"
-description = "Added support for data frame api."
+description = "A simple fixed income library using some commonly used constructs to evaluate portfolio."
 [dependencies]
 log = "0.4"
-chrono = "0.4.39"
+chrono = {version = "0.4.39", features = ["serde"]}
 assert_approx_eq = "1.1.0"
 filters = "0.4.0"
 datafusion = "45.0.0"

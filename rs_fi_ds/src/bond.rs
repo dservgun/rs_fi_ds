@@ -1,10 +1,10 @@
 pub mod bond {
     use chrono::{Datelike, Months, NaiveDate, ParseError};
-    use log::{info, warn, debug};
     use filters::filter::Filter;
+    use log::{debug, info, warn};
+    use serde::{Deserialize, Serialize};
     use std::cmp::Ordering;
     use std::cmp::{Eq, Ord, PartialEq, PartialOrd};
-    use serde::{Serialize, Deserialize};
 
     #[derive(Debug, Clone, Copy)]
     pub enum Periodicity {
@@ -151,11 +151,11 @@ pub mod bond {
         match (i_date, m_date) {
             (Ok(i_date_unwrapped), Ok(maturity_date_unwrapped)) => {
                 let b1: Bond = Bond {
-                    principal: principal,
+                    principal,
                     issue_date: i_date_unwrapped,
                     maturity_date: maturity_date_unwrapped,
                     coupon_rate: rate,
-                    periodicity: periodicity,
+                    periodicity,
                     reinvestment_interest: Some(reinvestment_interest_rate),
                 };
                 return Ok(b1);
@@ -184,7 +184,7 @@ pub mod bond {
         match (i_date, m_date) {
             (Ok(i_date_unwrapped), Ok(maturity_date_unwrapped)) => {
                 let b1: Bond = Bond {
-                    principal: principal,
+                    principal,
                     issue_date: i_date_unwrapped,
                     maturity_date: maturity_date_unwrapped,
                     coupon_rate: rate,
@@ -203,9 +203,8 @@ pub mod bond {
     }
 
     impl Bond {
-        
         /// The coupon payment adjusted to the ['periodicity'] of the bond.
-         
+
         pub fn coupon_payment(self) -> f32 {
             match self.periodicity {
                 Periodicity::Quarterly => {
@@ -220,9 +219,8 @@ pub mod bond {
             }
         }
 
-
         pub fn macaulay_duration(self) -> Option<f32> {
-          None
+            None
         }
         pub fn reinvestment_amount(self) -> f32 {
             match self.periodicity {
