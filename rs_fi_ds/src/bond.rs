@@ -86,6 +86,9 @@ pub mod bond {
     /// These above rules apply only on the coupon dates and the rest of the dates need to account for
     /// accrued interest on the bond.
 
+    /// #### The Yield-to-maturity (ytm) measures the investors rate of return only if the coupons
+    /// are reinvested at the same yield.
+
     #[derive(Debug, Clone, Copy)]
     pub struct Bond {
         pub principal: f32,
@@ -200,6 +203,9 @@ pub mod bond {
     }
 
     impl Bond {
+        
+        /// The coupon payment adjusted to the ['periodicity'] of the bond.
+         
         pub fn coupon_payment(self) -> f32 {
             match self.periodicity {
                 Periodicity::Quarterly => {
@@ -214,6 +220,10 @@ pub mod bond {
             }
         }
 
+
+        pub fn macaulay_duration(self) -> Option<f32> {
+          None
+        }
         pub fn reinvestment_amount(self) -> f32 {
             match self.periodicity {
                 Periodicity::Quarterly => match self.reinvestment_interest {
