@@ -18,9 +18,11 @@ async fn main() -> std::io::Result<()> {
     env_logger::init();
     HttpServer::new(move || {
         let logger = Logger::default();
-        App::new().wrap(logger)
-          .service(get_discount_factor)
-          .service(get_spot_rates)
+        App::new()
+            .wrap(logger)
+            .service(get_discount_factor)
+            .service(get_spot_rates)
+            .service(get_next_settlement_dates)
     })
     .bind(("0.0.0.0", 9000))?
     .run()
