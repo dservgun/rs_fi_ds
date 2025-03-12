@@ -1,7 +1,10 @@
 [package]
 name = "rs_fi_ds"
-version = "0.2.0"
+version = "0.3.1"
 edition = "2021"
+license = "GPLv3"
+path = "src"
+crate-type = ["lib"]
 description = "A simple fixed income library using some commonly used constructs to evaluate portfolio."
 [dependencies]
 log = "0.4"
@@ -9,7 +12,6 @@ chrono = {version = "0.4.39", features = ["serde"]}
 assert_approx_eq = "1.1.0"
 filters = "0.4.0"
 datafusion = "45.0.0"
-tokio = {version = "1.43", features = ["rt", "macros", "sync", "rt-multi-thread"]}
 actix-web = "^4"
 serde = {version = "^1.0.218", features = ["derive"]}
 serde_json = {version = "^1.0.140"}
