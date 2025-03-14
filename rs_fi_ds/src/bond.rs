@@ -6,6 +6,8 @@ pub mod bond {
     use std::cmp::Ordering;
     use std::cmp::{Eq, Ord, PartialEq, PartialOrd};
 
+    /// Most products support annual, quarterly and semiannual payments.
+    /// Continuous and Daily compounding are also supported.
     #[derive(Debug, Clone, Copy)]
     pub enum Periodicity {
         Quarterly,
@@ -23,11 +25,120 @@ pub mod bond {
     /// conventional coupon face value of USD 100.00.
     /// Also assuming that the market data is from today out into the
     /// next terms.
+
+    /// ```
+    /// use crate::bond::bond::create_bond;
+    /// use crate::bond::bond::discount_factor;
+    /// use crate::bond::bond::Bond;
+    /// use crate::bond::bond::BondError;
+    /// use crate::bond::bond::DiscountFactor;
+    /// use crate::bond::bond::MarketData;
+    /// use crate::bond::bond::Periodicity;
+    /// use assert_approx_eq::assert_approx_eq;
+    /// use chrono::{Datelike, NaiveDate, ParseError};
+    /// fn create_test_market_data() -> Vec<MarketData> {
+    ///     let mut result: Vec<MarketData> = Vec::new();
+    ///     let md1 = MarketData {
+    ///         coupon_rate: 2.875,
+    ///         term: 0.5,
+    ///         market_price: 101.4297,
+    ///     };
+    ///     result.push(md1);
+    ///     let md2 = MarketData {
+    ///         coupon_rate: 2.125,
+    ///         term: 1.0,
+    ///         market_price: 102.0662,
+    ///     };
+    ///     result.push(md2);
+    ///     let md3 = MarketData {
+    ///         coupon_rate: 1.625,
+    ///         term: 1.5,
+    ///         market_price: 102.2862,
+    ///     };
+    ///     result.push(md3);
+    ///     let md4 = MarketData {
+    ///         coupon_rate: 0.125,
+    ///         term: 2.0,
+    ///         market_price: 99.9538,
+    ///     };
+    ///     let md5 = MarketData {
+    ///         coupon_rate: 0.250,
+    ///         term: 2.5,
+    ///         market_price: 100.0795,
+    ///     };
+    ///     let md6 = MarketData {
+    ///         coupon_rate: 0.250,
+    ///         term: 3.0,
+    ///         market_price: 99.7670,
+    ///     };
+    ///     let md7 = MarketData {
+    ///         coupon_rate: 2.250,
+    ///         term: 3.5,
+    ///         market_price: 106.3091,
+    ///     };
+    ///     result.push(md4);
+    ///     result.push(md5);
+    ///     result.push(md6);
+    ///     result.push(md7);
+    ///     return result;
+    /// }
+
+    /// fn test_create_discount_factor() {
+    ///     let market_data: Vec<MarketData> = create_test_market_data();
+    ///     let discount_factor: Vec<DiscountFactor> =
+    ///         discount_factor(&market_data, Periodicity::SemiAnnual);
+    ///     assert_approx_eq!(discount_factor[0].discount, 0.9999231, f32::EPSILON);
+    ///     assert_approx_eq!(discount_factor[1].discount, 0.99941903, f32::EPSILON);
+    ///     assert_approx_eq!(discount_factor[2].discount, 0.9985045, f32::EPSILON);
+    ///     assert_approx_eq!(discount_factor[3].discount, 0.99704117, f32::EPSILON);
+    ///     assert_approx_eq!(discount_factor[4].discount, 0.9945582, f32::EPSILON);
+    ///     assert_approx_eq!(discount_factor[5].discount, 0.99019545, f32::EPSILON);
+    ///     assert_approx_eq!(discount_factor[6].discount, 0.9847417, f32::EPSILON);
+    /// }
+    ///```
+
     #[derive(Debug, Clone, Copy)]
     pub struct MarketData {
         pub coupon_rate: f32,
         pub term: f32,
         pub market_price: f32,
+    }
+
+    /// The one-factor metrics for a Bond are:
+    ///
+    /// .   DV01 expands to *dollar value of an 01* and represents the change
+    /// in the price of a bond for a change in rates of 0.01% or 1bps.
+    ///
+    /// .   Duration measures the percentage of changes in prices for a change in the yield.
+    /// Both Duration and DV01 represent a rate of change.
+    ///
+    /// .   Convexity represents the rate of change of the DV01 and represents the
+    /// second derivative of the price-rate function divided by price.
+
+    /// These metrics are useful for hedging strategies. For example to hedge 2 portfolios,
+    /// the face values and dvO1s defineds as fv1, dv01_1, fv2, dv01_2, the hedge is defined as
+    ///
+    ///         fv1 * dv01_1 + fv2 * dv01_2 = 0
+    /// The lower the dv01_1 the lower the sensitivity to changes in interest rates, by definition. For example,
+    /// if the dv01 is .241 then for every change in 1 basis point the price of the value changes by $0.241. Specifically,
+    /// if the rates reduce by a basis point the price of the bond *increases* because there is an inverse relationship
+    /// betwween the price of a bond at its yield.
+
+    /// ### Additional notes on Duration, Convexity.
+    ///
+    ///     Yield based duration is a modified version of a Duration and is expressed
+    ///     
+    ///     . D_c0 = T / (100.0 * (f32::pow(1 + y/2), 2T + 1.0))
+    ///     . D_c100y = 1.0/y * (1.0  - 1.0 / (f32::pow(1 + y/2.0, 2 * T)))
+
+    ///     . The duration of a bond approximately equals its term.
+    ///     . The duration of a par bond increases with term but increases less linearly with term.
+    ///     . The duration of a premium bond is less than the duration of a par bond.
+    #[derive(Debug, Clone, Copy)]
+    pub struct BondMetrics {
+        pub dv01: f32,
+        pub convexity: f32,
+        pub duration: f32,
     }
 
     #[derive(Debug, Clone, Copy)]
@@ -45,9 +156,14 @@ pub mod bond {
 
     /// A bond with an issue date, principal and a maturity date.
     /// [Regulationss](https://treasurydirect.gov/files/laws-and-regulations/auction-regulations-uoc/auct-reg-gsr-31-cfr-356.pdf)
-    /// Notes are based on Bond Math - Donald J. Smith and Bruce Tuckman.
+    /// References :
+    ///
+    ///     . Bond Math, Donald J Smith
+    ///     . "Fixed Income Securities, Tools for Today's Markets" (4th ed.), Bruce Tuckman, Angel Serrat
+
     /// ### Some examples
-    /// Example 1 : Suppose I buy a zero coupon corporate bond at 60 but I don't intend to hold this
+    ///
+    /// Example 1 : Suppose a participant buys a zero coupon corporate bond at 60 but doesn't intend to hold this
     /// bond till maturity, what is the analytics supporting selling the bond after,
     /// for example 2 years, 3 years etc.
 
@@ -55,10 +171,10 @@ pub mod bond {
     /// ```rust
     /// let b1 = create_bond(
     /// principal,
-    /// String::from("04/15/2021").as_str(),
-    /// String::from("04/15/2051").as_str(),
+    /// "04/15/2021",
+    /// "04/15/2051",
     /// 0.0,
-    /// String::from("%m/%d/%Y").as_str(),
+    /// "%m/%d/%Y",
     /// );
     ///
     /// match b1 {
@@ -86,8 +202,20 @@ pub mod bond {
     /// These above rules apply only on the coupon dates and the rest of the dates need to account for
     /// accrued interest on the bond.
 
-    /// #### The Yield-to-maturity (ytm) measures the investors rate of return only if the coupons
+    /// #### The Yield-to-maturity (ytm)
+    /// Yield-to-maturity measures the investors rate of return only if the coupons
     /// are reinvested at the same yield.
+
+    /// ### Zero Coupon Bonds
+    /// [Zero Coupon Bonds](https://en.wikipedia.org/wiki/Zero-coupon_bond)
+    /// there is only one payment and that is the *Face Value*, *Principal* or *Par Value*.
+    /// Computing *ytm* for a zero coupon bond is a simpler expression in contrast with a
+    /// coupon bond.
+    ///
+    /// Yield to Maturity  = f32::powf(Face Value/ Present Value, N) - 1
+    ///
+    /// Where N is the periodicity of the bond; bonds pay coupons if any, semi-annually. This is true for
+    /// most bonds with 10, 20 and 30 years maturity.
 
     #[derive(Debug, Clone, Copy)]
     pub struct Bond {
@@ -135,6 +263,7 @@ pub mod bond {
         }
     }
 
+    /// A convenience function that creates a bond with a specific [`Periodicity`]
     pub fn create_bond_with_periodicity(
         principal: f32,
         issue_date: &str,
@@ -169,6 +298,7 @@ pub mod bond {
         }
     }
 
+    /// Creates a bond with `SemiAnnual` periodicity.
     pub fn create_bond(
         principal: f32,
         issue_date: &str,
@@ -203,8 +333,7 @@ pub mod bond {
     }
 
     impl Bond {
-        /// The coupon payment adjusted to the ['periodicity'] of the bond.
-
+        /// The coupon payment adjusted to the 'periodicity' of the bond.
         pub fn coupon_payment(self) -> f32 {
             match self.periodicity {
                 Periodicity::Quarterly => {
@@ -219,9 +348,16 @@ pub mod bond {
             }
         }
 
+        /// TODO: Macaulay Duration or Duration is a one-factor metric
+        /// for interest rate sensitivity. The duration represents a local percentage change
+        /// in price for a corresponding change in rates. Duration is generally represented as a number and
+        /// is used to imply the number of time periods and cannot be greater than the maturity of the bond
+        /// adjusted to its periodicity.
         pub fn macaulay_duration(self) -> Option<f32> {
             None
         }
+
+        /// The amount of the bond when re-invested at the `reinvestment_interest`
         pub fn reinvestment_amount(self) -> f32 {
             match self.periodicity {
                 Periodicity::Quarterly => match self.reinvestment_interest {
@@ -336,7 +472,7 @@ pub mod bond {
             return (rhs - 1.0) * self.get_periods_per_year();
         }
 
-        /// Return the baseline price at a ['market_price'] after ['years'].
+        /// Return the baseline price at a `market_price` after `years`.
         pub fn at_the_money_yield_trajectory(self, market_price: f32, years: i32) -> f32 {
             let ytm_option: Option<f32> = self.yield_to_maturity(market_price);
             match ytm_option {
@@ -530,8 +666,11 @@ pub mod bond {
         }
     }
 
-    /// Given a table of ['MarketData'] return a discount factor table to be used for
+    /// Given a table of `MarketData` return a discount factor table to be used for
     /// subsequent computations.
+    /// Discount factors for a particular *term* gives the value today of one unit of currency
+    /// at the end of that term. For instance a discount factor of 0.999419 at term 1.0 implies that
+    /// the current value be discounted by this factor.
     pub fn discount_factor(
         market_data: &Vec<MarketData>,
         payment_schedule: Periodicity,
@@ -605,42 +744,20 @@ mod tests {
     }
 
     fn create_zcb(principal: f32) -> Result<Bond, BondError> {
-        return create_bond(
-            principal,
-            String::from("04/15/2021").as_str(),
-            String::from("04/15/2051").as_str(),
-            0.0,
-            String::from("%m/%d/%Y").as_str(),
-        );
+        return create_bond(principal, "04/15/2021", "04/15/2051", 0.0, "%m/%d/%Y");
     }
 
     fn create_test_bond() -> Result<Bond, BondError> {
-        return create_bond(
-            100.0,
-            String::from("04/15/2014").as_str(),
-            String::from("05/15/2024").as_str(),
-            2.5,
-            String::from("%m/%d/%Y").as_str(),
-        );
+        return create_bond(100.0, "04/15/2014", "05/15/2024", 2.5, "%m/%d/%Y");
     }
 
     #[test]
     fn test_bond_sort() {
-        let b1: Result<Bond, BondError> = create_bond(
-            100.0,
-            String::from("04/15/2014").as_str(),
-            String::from("05/15/2024").as_str(),
-            2.5,
-            String::from("%m/%d/%Y").as_str(),
-        );
+        let b1: Result<Bond, BondError> =
+            create_bond(100.0, "04/15/2014", "05/15/2024", 2.5, "%m/%d/%Y");
 
-        let b2: Result<Bond, BondError> = create_bond(
-            100.0,
-            String::from("03/15/2014").as_str(),
-            String::from("05/15/2024").as_str(),
-            2.5,
-            String::from("%m/%d/%Y").as_str(),
-        );
+        let b2: Result<Bond, BondError> =
+            create_bond(100.0, "03/15/2014", "05/15/2024", 2.5, "%m/%d/%Y");
         let mut bonds: Vec<Bond> = Vec::new();
         match (b1, b2) {
             (Ok(bond1), Ok(bond2)) => {
@@ -814,12 +931,13 @@ mod tests {
         let market_data: Vec<MarketData> = create_test_market_data();
         let discount_factor: Vec<DiscountFactor> =
             discount_factor(&market_data, Periodicity::SemiAnnual);
-        for i in discount_factor {
-            println!(
-                "Discount factor : Term {:?} -> Discount {:?}",
-                i.term, i.discount
-            );
-        }
+        assert_approx_eq!(discount_factor[0].discount, 0.9999231, f32::EPSILON);
+        assert_approx_eq!(discount_factor[1].discount, 0.99941903, f32::EPSILON);
+        assert_approx_eq!(discount_factor[2].discount, 0.9985045, f32::EPSILON);
+        assert_approx_eq!(discount_factor[3].discount, 0.99704117, f32::EPSILON);
+        assert_approx_eq!(discount_factor[4].discount, 0.9945582, f32::EPSILON);
+        assert_approx_eq!(discount_factor[5].discount, 0.99019545, f32::EPSILON);
+        assert_approx_eq!(discount_factor[6].discount, 0.9847417, f32::EPSILON);
     }
 
     #[test]
@@ -837,13 +955,7 @@ mod tests {
     }
 
     fn internal_yield_2() -> Vec<(NaiveDate, f32)> {
-        let b1 = create_bond(
-            100.00,
-            String::from("04/15/2021").as_str(),
-            String::from("04/15/2051").as_str(),
-            6.00,
-            String::from("%m/%d/%Y").as_str(),
-        );
+        let b1 = create_bond(100.00, "04/15/2021", "04/15/2051", 6.00, "%m/%d/%Y");
         let constant_yield = 0.2;
         match b1 {
             Result::Ok(val) => val.market_price_trajectory(constant_yield),
@@ -854,13 +966,7 @@ mod tests {
     }
 
     fn internal_yield_1() -> Vec<(NaiveDate, f32)> {
-        let b1 = create_bond(
-            100.00,
-            String::from("04/15/2021").as_str(),
-            String::from("04/15/2041").as_str(),
-            6.00,
-            String::from("%m/%d/%Y").as_str(),
-        );
+        let b1 = create_bond(100.00, "04/15/2021", "04/15/2041", 6.00, "%m/%d/%Y");
         let constant_yield = 0.20;
         match b1 {
             Result::Ok(val) => val.market_price_trajectory(constant_yield),

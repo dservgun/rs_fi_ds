@@ -1,12 +1,12 @@
 pub mod task {
-    use crate::rates::rates::NextSettlementDate;
-use crate::bond::bond::discount_factor;
+    use crate::bond::bond::discount_factor;
     use crate::bond::bond::DiscountFactor;
     use crate::bond::bond::Periodicity;
     use crate::data_loader::data_loader::load_market_data;
-    use crate::data_loader::data_loader::load_spot_rates;
     use crate::data_loader::data_loader::load_next_settlement_dates;
+    use crate::data_loader::data_loader::load_spot_rates;
     use crate::data_loader::data_loader::market_data_loader;
+    use crate::rates::rates::NextSettlementDate;
     use crate::rates::rates::OvernightRateType;
     use crate::rates::rates::SwapRate;
 
@@ -41,7 +41,7 @@ use crate::bond::bond::discount_factor;
     #[derive(Serialize, Deserialize, Debug, Clone)]
     #[serde(rename_all = "camelCase")]
     pub struct NextSettlementDatesResponse {
-        pub next_dates : Vec<NextSettlementDate>,
+        pub next_dates: Vec<NextSettlementDate>,
     }
 
     // Responder
@@ -70,7 +70,7 @@ use crate::bond::bond::discount_factor;
 
     impl Responder for NextSettlementDatesResponse {
         type Body = BoxBody;
-        fn respond_to(self, _req : &HttpRequest) -> HttpResponse<Self::Body> {
+        fn respond_to(self, _req: &HttpRequest) -> HttpResponse<Self::Body> {
             let body = serde_json::to_string(&self.next_dates).unwrap();
             HttpResponse::Ok()
                 .content_type(ContentType::json())
@@ -104,11 +104,10 @@ use crate::bond::bond::discount_factor;
     #[get("/get_next_settlement_dates")]
     pub async fn get_next_settlement_dates() -> Result<impl Responder> {
         info!("Running next settlement dates");
-        let next_dates = load_next_settlement_dates(String::from("./tests/days_from_settlement.csv")).await;
+        let next_dates =
+            load_next_settlement_dates(String::from("./tests/days_from_settlement.csv")).await;
         match next_dates {
-            Ok(next_dates) => Ok(NextSettlementDatesResponse {
-                next_dates
-            }),
+            Ok(next_dates) => Ok(NextSettlementDatesResponse { next_dates }),
             Err(_) => todo!(),
         }
     }

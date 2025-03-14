@@ -4,9 +4,9 @@ pub mod data_loader {
     use crate::bond::bond::DiscountFactor;
     use crate::bond::bond::MarketData;
     use crate::bond::bond::Periodicity;
+    use crate::rates::rates::NextSettlementDate;
     use crate::rates::rates::OvernightRateType;
     use crate::rates::rates::SwapRate;
-    use crate::rates::rates::NextSettlementDate;
     use chrono::NaiveDate;
     use datafusion::common::arrow::array::*;
     use datafusion::error::*;
@@ -24,7 +24,7 @@ pub mod data_loader {
         }
     }
 
-    pub async fn load_next_settlement_dates(file_name : String) -> Result<Vec<NextSettlementDate>> {
+    pub async fn load_next_settlement_dates(file_name: String) -> Result<Vec<NextSettlementDate>> {
         const START_DATE_COLUMN: &str = "start_date";
         const TERM_COLUMN: &str = "term";
         const NEXT_SETTLEMENT_DATE_COLUMN: &str = "next_settlement_date";
@@ -39,12 +39,12 @@ pub mod data_loader {
             let num_rows = batch.num_rows();
             let dates = match batch.column_by_name(START_DATE_COLUMN) {
                 Some(col) => col.as_any().downcast_ref::<StringArray>(),
-                None => panic!("Column not found {}", START_DATE_COLUMN)
+                None => panic!("Column not found {}", START_DATE_COLUMN),
             };
 
             let terms = match batch.column_by_name(TERM_COLUMN) {
                 Some(col) => col.as_any().downcast_ref::<StringArray>(),
-                None => panic!("Column not found {}", TERM_COLUMN)
+                None => panic!("Column not found {}", TERM_COLUMN),
             };
             let next_settlement_dates = match batch.column_by_name(NEXT_SETTLEMENT_DATE_COLUMN) {
                 Some(col) => col.as_any().downcast_ref::<StringArray>(),
@@ -52,26 +52,25 @@ pub mod data_loader {
             };
 
             for i in 0..num_rows {
-                    let m = NextSettlementDate {
-                        start_date: match dates {
-                            Some(v) => parse_date(v.value(i), DATE_FORMAT),
-                            None => panic!("Missing date"),
-                        },
-                        term: match terms {
-                            Some(v) => f32::from_str(v.value(i).trim()).unwrap(),
-                            None => panic!("Missing term"),
-                        },
-                        next_settlement_date: match next_settlement_dates {
-                            Some(v) => parse_date(v.value(i).trim(), DATE_FORMAT),
-                            None => panic!("Missing rates."),
-                        },
-                    };
-                    debug!("Adding spot rate");
-                    result.push(m)
-                }
+                let m = NextSettlementDate {
+                    start_date: match dates {
+                        Some(v) => parse_date(v.value(i), DATE_FORMAT),
+                        None => panic!("Missing date"),
+                    },
+                    term: match terms {
+                        Some(v) => f32::from_str(v.value(i).trim()).unwrap(),
+                        None => panic!("Missing term"),
+                    },
+                    next_settlement_date: match next_settlement_dates {
+                        Some(v) => parse_date(v.value(i).trim(), DATE_FORMAT),
+                        None => panic!("Missing rates."),
+                    },
+                };
+                debug!("Adding spot rate");
+                result.push(m)
             }
-        Ok(result)        
-
+        }
+        Ok(result)
     }
     pub async fn load_spot_rates(
         file_name: String,
@@ -91,12 +90,12 @@ pub mod data_loader {
             let num_rows = batch.num_rows();
             let dates = match batch.column_by_name(DATE_COLUMN) {
                 Some(col) => col.as_any().downcast_ref::<StringArray>(),
-                None => panic!("Column not found {}", DATE_COLUMN)
+                None => panic!("Column not found {}", DATE_COLUMN),
             };
 
             let terms = match batch.column_by_name(TERM_COLUMN) {
                 Some(col) => col.as_any().downcast_ref::<StringArray>(),
-                None => panic!("Column not found {}", TERM_COLUMN)
+                None => panic!("Column not found {}", TERM_COLUMN),
             };
             let rates = match batch.column_by_name(RATE_COLUMN) {
                 Some(col) => col.as_any().downcast_ref::<StringArray>(),
@@ -104,26 +103,26 @@ pub mod data_loader {
             };
 
             for i in 0..num_rows {
-                    let m = SwapRate {
-                        date: match dates {
-                            Some(v) => parse_date(v.value(i), DATE_FORMAT),
-                            None => panic!("Missing date"),
-                        },
-                        term: match terms {
-                            Some(v) => f32::from_str(v.value(i).trim()).unwrap(),
-                            None => panic!("Missing term"),
-                        },
-                        rate: match rates {
-                            Some(v) => f32::from_str(v.value(i).trim()).unwrap(),
-                            None => panic!("Missing rates."),
-                        },
-                        swap_rate_type,
-                    };
-                    debug!("Adding spot rate");
-                    result.push(m)
-                }
+                let m = SwapRate {
+                    date: match dates {
+                        Some(v) => parse_date(v.value(i), DATE_FORMAT),
+                        None => panic!("Missing date"),
+                    },
+                    term: match terms {
+                        Some(v) => f32::from_str(v.value(i).trim()).unwrap(),
+                        None => panic!("Missing term"),
+                    },
+                    rate: match rates {
+                        Some(v) => f32::from_str(v.value(i).trim()).unwrap(),
+                        None => panic!("Missing rates."),
+                    },
+                    swap_rate_type,
+                };
+                debug!("Adding spot rate");
+                result.push(m)
             }
-        Ok(result)        
+        }
+        Ok(result)
     }
 
     pub async fn load_market_data(file_name: String) -> Result<Vec<MarketData>> {

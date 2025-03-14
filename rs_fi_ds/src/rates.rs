@@ -1,3 +1,9 @@
+//! Interest rates are always quoted annually but adjusted to the appropriate
+/// periodicity based on the underlying product.
+///
+/// * Par Rate - is defined as the rate that costs par and pays par at maturity. For example,
+/// if, a 10-year Treasury bond has a coupon of 1.625% and costs 100.00 then the par rate is
+/// 1.625%.
 pub mod rates {
     use crate::bond::bond::DiscountFactor;
     use serde::{Deserialize, Serialize};
@@ -7,13 +13,16 @@ pub mod rates {
     use crate::bond::bond::Periodicity;
     use chrono::NaiveDate;
 
+    /// Acronyms
+    /// * SOFR - Secured Overnight Financing Rate.
+    /// * SONIA - Sterling Overnight Interbank Average.
     #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd)]
     pub enum OvernightRateType {
         SOFR,
         SONIA,
     }
 
-    /// The ['SwapRate'] for a ['date'] for a ['term']. These elements are
+    /// The `SwapRate` for a `date` for a `term`. These elements are
     /// used to compute spot rates, discount factors, and forward rates for a
     /// term structure.
     #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -74,6 +83,7 @@ pub mod rates {
             return result;
         }
     }
+
     /// Approximate discount factors for spot rates. The number of days is assumed.
     pub fn discount_factors(
         market_data: Vec<f32>,
@@ -90,7 +100,6 @@ pub mod rates {
 mod tests {
     use crate::rates::rates::NextSettlementDate;
     use chrono::NaiveDate;
-    use std::str::FromStr;
     #[test]
     fn test_next_settlement_date() {
         let s1 = NextSettlementDate {

@@ -8,6 +8,24 @@ pub mod bintree {
         NoRotation,
     }
 
+    ///
+    /// ```use super::*;
+    /// use bintree::*;
+    /// #[test]
+    /// fn test_basic_sort() {
+    ///     let mut t = BinTree::new();
+    ///     t.add_sorted(4);
+    ///     t.add_sorted(5);
+    ///     t.add_sorted(6);
+    ///     t.add_sorted(10);
+    ///     t.add_sorted(1);
+    ///     t.add_sorted(94);
+    ///     t.add_sorted(54);
+    ///     t.add_sorted(3);
+    ///     assert_eq!(t.max_value(), Some(94));
+    /// }
+    /// '''
+
     #[derive(Debug)]
     pub struct BinTree<T>(Option<Box<BinData<T>>>);
 
@@ -45,6 +63,17 @@ pub mod bintree {
             res.h = 1 + std::cmp::max(res.left.height(), res.right.height());
             res
         }
+
+        pub fn max_value(self) -> Option<T> {
+            match self.right.0 {
+                Some(x) => {
+                    return x.max_value();
+                }
+                None => {
+                    return Some(self.data);
+                }
+            }
+        }
     }
 
     impl<T> BinTree<T> {
@@ -69,6 +98,13 @@ pub mod bintree {
 
         pub fn rot_right(&mut self) {
             self.0 = self.0.take().map(|v| v.rot_right());
+        }
+
+        pub fn max_value(&mut self) -> Option<T> {
+            match self.0.take() {
+                Some(v) => v.max_value(),
+                None => None,
+            }
         }
     }
 
@@ -126,20 +162,4 @@ pub mod bintree {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use bintree::*;
-    #[test]
-    fn test_basic_sort() {
-        let mut t = BinTree::new();
-        t.add_sorted(4);
-        t.add_sorted(5);
-        t.add_sorted(6);
-        t.add_sorted(10);
-        t.add_sorted(1);
-        t.add_sorted(94);
-        t.add_sorted(54);
-        t.add_sorted(3);
-        t.print_lfirst(0);
-    }
-}
+mod tests {}
