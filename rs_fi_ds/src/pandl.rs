@@ -1,7 +1,10 @@
-mod pandl {
+pub mod pandl {
     use crate::bond::bond::Bond;
     use chrono::NaiveDate;
     use log::{debug};
+    use crate::bond::bond::DiscountFactor;
+
+    type TermRate = f32;
 
     pub enum RealizedForwards {
         RealizedForwards,
@@ -56,7 +59,7 @@ mod pandl {
         return Vec::new();
     }
 
-    /// Begin with a simple example of an investor
+    /// Begin with an example of an investor
     /// buys a US 7.625s of 11/15/2022 at 114.8765 on
     /// Nov 14th, 2020. Compute the price on May 2021.
     #[derive(Debug, Clone, Copy)]
@@ -68,7 +71,35 @@ mod pandl {
         pub sale_price: f32,
     }
 
+
     impl BondTransaction {
+
+        fn compute_individual_term(&self, previous_discount: Option<f32>, current_discount : Option<f32>) -> f32 {
+            match (previous_discount, current_discount) {
+                (None, Some(discount)) => ((1.0 / discount) - 1.0) * 2.0,
+                (Some(d1), Some(d2)) => ((d1/d2) - 1.0) * 2.0,
+                _                   => 0.0
+            }
+        }
+        /// Sorted discount factors vectors starting from the earliest term.
+        pub fn compute_term_rate(&self, discount_factors: &Vec<DiscountFactor>) -> Vec<TermRate> {
+            if discount_factors.len() == 0 {
+                Vec::new()
+            } else {
+                let mut prev_discount : Option<f32> = None;
+                let mut result = Vec::new();
+                for discount_factor in discount_factors {
+                    let current = self.compute_individual_term(prev_discount, Some(discount_factor.discount));
+                    result.push(current);
+                    prev_discount = Some(discount_factor.discount);
+
+                };
+                return result;
+            }
+
+
+
+        }
         /// Returns the realized returns in percentage points.
         pub fn compute_realized_return(&self) -> f32 {
             let cashflows = self
