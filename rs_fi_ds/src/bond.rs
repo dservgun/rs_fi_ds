@@ -263,6 +263,31 @@ pub mod bond {
         }
     }
 
+    impl Eq for DiscountFactor {}
+    impl PartialEq for DiscountFactor {
+        fn eq(&self, other: &Self) -> bool {
+            self.term == other.term
+        }
+    }
+
+    impl Ord for DiscountFactor {
+        fn cmp(&self, other : &Self) -> Ordering {
+            if self.term < other.term {
+                Ordering::Less
+            } else if (self.term - other.term).abs() < f32::EPSILON {
+                Ordering::Equal
+            } else {
+                Ordering::Greater
+            }
+        }
+    }
+
+    impl PartialOrd for DiscountFactor {
+        fn partial_cmp(&self, other : &Self) -> Option<Ordering> {
+            Some(self.cmp(other))
+        }
+    }
+
     /// A convenience function that creates a bond with a specific [`Periodicity`]
     pub fn create_bond_with_periodicity(
         principal: f32,
@@ -762,6 +787,7 @@ mod tests {
     use crate::bond::bond::MarketData;
     use crate::bond::bond::Periodicity;
     use assert_approx_eq::assert_approx_eq;
+    use crate::pandl::pandl::BondTransaction;
     use chrono::{Datelike, NaiveDate, ParseError};
 
     fn create_zcb_principal_maturity(
@@ -941,6 +967,31 @@ mod tests {
         assert_approx_eq!(discount_factor[4].discount, 0.9945582, f32::EPSILON);
         assert_approx_eq!(discount_factor[5].discount, 0.99019545, f32::EPSILON);
         assert_approx_eq!(discount_factor[6].discount, 0.9847417, f32::EPSILON);
+    }
+
+    #[test]
+    fn test_forward_rates() {
+        let market_data : Vec<MarketData> = create_test_market_data();
+        let mut discount_factor : Vec<DiscountFactor> =
+            discount_factor(&market_data, Periodicity::SemiAnnual);
+        let b1 = create_zcb(1000.0).unwrap();
+        let bt = BondTransaction {
+            underlying : b1,
+            purchase_date : NaiveDate::parse_from_str("11/13/2020", "%m/%d/%Y").unwrap(),
+            purchase_price : 0.0,
+            sale_date : NaiveDate::parse_from_str("05/14/2021", "%m/%d/%Y").unwrap(),
+            sale_price: 0.0
+        };
+        discount_factor.sort();
+        let result = bt.compute_term_rate(&discount_factor);
+        assert_approx_eq!(result[0], 0.00015377998);
+        assert_approx_eq!(result[1], 0.001008749);
+        assert_approx_eq!(result[2], 0.00183177);
+        assert_approx_eq!(result[3], 0.0029354095);
+        assert_approx_eq!(result[4], 0.004992962);
+        assert_approx_eq!(result[5], 0.008811951);
+        assert_approx_eq!(result[6], 0.01107645);
+
     }
 
     #[test]
