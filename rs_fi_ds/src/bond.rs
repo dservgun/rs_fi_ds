@@ -722,29 +722,7 @@ pub mod bond {
         return result;
     }
 
-        // principal: f32,
-        // issue_date: &str,
-        // maturity_date: &str,
-        // rate: f32,
-        // reinvestment_interest_rate: f32,
-        // periodicity: Periodicity,
-        // date_format: &str,
-
-
-} // End mod.
-
-#[cfg(test)]
-mod tests {
-    use crate::bond::bond::create_bond;
-    use crate::bond::bond::discount_factor;
-    use crate::bond::bond::Bond;
-    use crate::bond::bond::BondError;
-    use crate::bond::bond::DiscountFactor;
-    use crate::bond::bond::MarketData;
-    use crate::bond::bond::Periodicity;
-    use assert_approx_eq::assert_approx_eq;
-    use chrono::{Datelike, NaiveDate, ParseError};
-
+    #[macro_export]
     macro_rules! Issue_Bond {
         [with $principal:ident $issue_date:ident $maturity_date:ident $rate:literal] => {
             create_bond($principal, $issue_date, $maturity_date, $rate, "%m/%d/%Y")
@@ -757,6 +735,8 @@ mod tests {
         };
     }
 
+
+    #[macro_export]
     macro_rules! Create_Market_Data {
         [with $coupon_rate:literal at term $term:literal @ $price:literal] => {
             MarketData {
@@ -766,6 +746,23 @@ mod tests {
             }
         }
     }
+
+
+} // End mod.
+
+#[cfg(test)]
+mod tests {
+    use crate::Issue_Bond;
+    use crate::Create_Market_Data;
+    use crate::bond::bond::create_bond;
+    use crate::bond::bond::discount_factor;
+    use crate::bond::bond::Bond;
+    use crate::bond::bond::BondError;
+    use crate::bond::bond::DiscountFactor;
+    use crate::bond::bond::MarketData;
+    use crate::bond::bond::Periodicity;
+    use assert_approx_eq::assert_approx_eq;
+    use chrono::{Datelike, NaiveDate, ParseError};
 
     fn create_zcb_principal_maturity(
         principal: f32,
