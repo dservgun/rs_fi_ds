@@ -162,4 +162,21 @@ pub mod bintree {
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+ use super::*;
+ use bintree::*;
+ #[test]
+ fn test_basic_sort() {
+     let mut t = BinTree::new();
+     t.add_sorted(4);
+     t.add_sorted(5);
+     t.add_sorted(6);
+     t.add_sorted(10);
+     t.add_sorted(1);
+     t.add_sorted(94);
+     t.add_sorted(54);
+     t.add_sorted(3);
+     assert_eq!(t.max_value(), Some(94));
+ }
+
+}

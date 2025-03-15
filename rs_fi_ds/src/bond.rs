@@ -1,7 +1,7 @@
 pub mod bond {
     use chrono::{Datelike, Months, NaiveDate, ParseError};
     use filters::filter::Filter;
-    use log::{debug, info, warn};
+    use log::{debug};
     use serde::{Deserialize, Serialize};
     use std::cmp::Ordering;
     use std::cmp::{Eq, Ord, PartialEq, PartialOrd};
@@ -127,7 +127,7 @@ pub mod bond {
     /// ### Additional notes on Duration, Convexity.
     ///
     ///     Yield based duration is a modified version of a Duration and is expressed
-    ///     
+    ///
     ///     . D_c0 = T / (100.0 * (f32::pow(1 + y/2), 2T + 1.0))
     ///     . D_c100y = 1.0/y * (1.0  - 1.0 / (f32::pow(1 + y/2.0, 2 * T)))
 
@@ -721,6 +721,16 @@ pub mod bond {
         }
         return result;
     }
+
+        // principal: f32,
+        // issue_date: &str,
+        // maturity_date: &str,
+        // rate: f32,
+        // reinvestment_interest_rate: f32,
+        // periodicity: Periodicity,
+        // date_format: &str,
+
+
 } // End mod.
 
 #[cfg(test)]
@@ -735,29 +745,53 @@ mod tests {
     use assert_approx_eq::assert_approx_eq;
     use chrono::{Datelike, NaiveDate, ParseError};
 
+    macro_rules! Issue_Bond {
+        [with $principal:ident $issue_date:ident $maturity_date:ident $rate:literal] => {
+            create_bond($principal, $issue_date, $maturity_date, $rate, "%m/%d/%Y")
+        };
+        [with $principal:ident $issue_date:literal $maturity_date:literal $rate:literal] => {
+            create_bond($principal, $issue_date, $maturity_date, $rate, "%m/%d/%Y")
+        };
+        [using $principal:literal $issue_date:literal $maturity_date:literal $rate:literal] => {
+            create_bond($principal, $issue_date, $maturity_date, $rate, "%m/%d/%Y")
+        };
+    }
+
+    macro_rules! Create_Market_Data {
+        [with $coupon_rate:literal at term $term:literal @ $price:literal] => {
+            MarketData {
+             coupon_rate : $coupon_rate,
+             term : $term,
+             market_price : $price
+            }
+        }
+    }
+
     fn create_zcb_principal_maturity(
         principal: f32,
         issue_date: &str,
         mat_date: &str,
     ) -> Result<Bond, BondError> {
-        return create_bond(principal, issue_date, mat_date, 0.0, "%m/%d/%Y");
+        // return create_bond(principal, issue_date, mat_date, 0.0, "%m/%d/%Y");
+        return Issue_Bond! (with principal issue_date mat_date 0.0);
     }
 
     fn create_zcb(principal: f32) -> Result<Bond, BondError> {
-        return create_bond(principal, "04/15/2021", "04/15/2051", 0.0, "%m/%d/%Y");
+        return Issue_Bond! (with principal "04/15/2021" "04/15/2051" 0.0);
     }
 
     fn create_test_bond() -> Result<Bond, BondError> {
-        return create_bond(100.0, "04/15/2014", "05/15/2024", 2.5, "%m/%d/%Y");
+        let principal = 100.0;
+        return Issue_Bond! (with principal "04/15/2014" "05/15/2024" 2.5);
     }
 
     #[test]
     fn test_bond_sort() {
         let b1: Result<Bond, BondError> =
-            create_bond(100.0, "04/15/2014", "05/15/2024", 2.5, "%m/%d/%Y");
+            Issue_Bond!(using 100.0 "04/15/2014" "05/15/2024" 2.5);
 
         let b2: Result<Bond, BondError> =
-            create_bond(100.0, "03/15/2014", "05/15/2024", 2.5, "%m/%d/%Y");
+            Issue_Bond!(using 100.0 "03/15/2014" "05/15/2024" 2.5);
         let mut bonds: Vec<Bond> = Vec::new();
         match (b1, b2) {
             (Ok(bond1), Ok(bond2)) => {
@@ -770,49 +804,21 @@ mod tests {
         }
         bonds.sort();
         assert_eq!(b1.unwrap(), bonds[1]);
-    }
+}
 
     fn create_test_market_data() -> Vec<MarketData> {
         let mut result: Vec<MarketData> = Vec::new();
-        let md1 = MarketData {
-            coupon_rate: 2.875,
-            term: 0.5,
-            market_price: 101.4297,
-        };
-        result.push(md1);
-        let md2 = MarketData {
-            coupon_rate: 2.125,
-            term: 1.0,
-            market_price: 102.0662,
-        };
-        result.push(md2);
-        let md3 = MarketData {
-            coupon_rate: 1.625,
-            term: 1.5,
-            market_price: 102.2862,
-        };
-        result.push(md3);
 
-        let md4 = MarketData {
-            coupon_rate: 0.125,
-            term: 2.0,
-            market_price: 99.9538,
-        };
-        let md5 = MarketData {
-            coupon_rate: 0.250,
-            term: 2.5,
-            market_price: 100.0795,
-        };
-        let md6 = MarketData {
-            coupon_rate: 0.250,
-            term: 3.0,
-            market_price: 99.7670,
-        };
-        let md7 = MarketData {
-            coupon_rate: 2.250,
-            term: 3.5,
-            market_price: 106.3091,
-        };
+        let md1 = Create_Market_Data!(with 2.875 at term 0.5 @ 101.4297);
+        result.push(md1);
+        let md2 = Create_Market_Data!(with 2.125 at term 1.0 @ 102.0662);
+        result.push(md2);
+        let md3 = Create_Market_Data!(with 1.625 at term 1.5 @ 102.2862);
+        result.push(md3);
+        let md4 = Create_Market_Data!(with 0.125 at term 2.0 @ 99.9538);
+        let md5 = Create_Market_Data!(with 0.250 at term 2.5 @ 100.0795);
+        let md6 = Create_Market_Data!(with 0.250 at term 3.0 @ 99.7670);
+        let md7 = Create_Market_Data!(with 2.250 at term 3.5 @ 106.3091);
         result.push(md4);
         result.push(md5);
         result.push(md6);

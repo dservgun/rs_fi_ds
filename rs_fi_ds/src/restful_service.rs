@@ -1,8 +1,7 @@
 pub mod task {
-    use crate::bond::bond::discount_factor;
     use crate::bond::bond::DiscountFactor;
-    use crate::bond::bond::Periodicity;
-    use crate::data_loader::data_loader::load_market_data;
+    use actix_web::http::header::ContentType;
+    use log::info;
     use crate::data_loader::data_loader::load_next_settlement_dates;
     use crate::data_loader::data_loader::load_spot_rates;
     use crate::data_loader::data_loader::market_data_loader;
@@ -10,18 +9,11 @@ pub mod task {
     use crate::rates::rates::OvernightRateType;
     use crate::rates::rates::SwapRate;
 
-    use log::{info, warn};
     use std::fmt::*;
 
     use actix_web::{
         body::BoxBody,
-        error::ResponseError,
         get,
-        http::{header::ContentType, StatusCode},
-        post, put,
-        web::Data,
-        web::Json,
-        web::Path,
         HttpRequest, HttpResponse, Responder, Result,
     };
     use serde::{Deserialize, Serialize};

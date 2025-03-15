@@ -3,8 +3,6 @@ name = "rs_fi_ds"
 version = "0.3.1"
 edition = "2021"
 license = "GPLv3"
-path = "src"
-crate-type = ["lib"]
 description = "A simple fixed income library using some commonly used constructs to evaluate portfolio."
 [dependencies]
 log = "0.4"

@@ -23,20 +23,42 @@ mod tbills {
         pub maturity_date: NaiveDate,
     }
 
+
     impl TBills {
-        pub fn valuation(&self) -> f32 {
+
+        pub fn normalize_days(&self) -> f32 {
             match self.time_interval_type {
-                TimeIntervalType::Weeks => {
-                    self.face_value
-                        * (1.0 - (self.time * 7.0) * (self.discount_rate / (100.0 * 360.0)))
-                }
-                TimeIntervalType::Days => {
-                    self.face_value * (1.0 - (self.time) * (self.discount_rate / (100.0 * 360.0)))
-                }
-                TimeIntervalType::Months => {
-                    self.face_value
-                        * (1.0 - (self.time * 30.0) * (self.discount_rate / (100.0 * 360.0)))
-                }
+                TimeIntervalType::Weeks => self.time * 7.0,
+                TimeIntervalType::Days => self.time,
+                TimeIntervalType::Months => self.time * 30.0
+            }
+        }
+        pub fn is_time_valid(&self) -> bool {
+            if self.maturity_date > self.issue_date {
+                true
+            } else {
+                println!("Invalid bill {:?}", self.maturity_date);
+                false
+            }
+        }
+        pub fn valuation(&self) -> Option<f32> {
+            if self.is_time_valid() {
+                Some(
+                    match self.time_interval_type {
+                    TimeIntervalType::Weeks => {
+                        self.face_value
+                            * (1.0 - (self.time * 7.0) * (self.discount_rate / (100.0 * 360.0)))
+                    }
+                    TimeIntervalType::Days => {
+                        self.face_value * (1.0 - (self.time) * (self.discount_rate / (100.0 * 360.0)))
+                    }
+                    TimeIntervalType::Months => {
+                        self.face_value
+                            * (1.0 - (self.time * 30.0) * (self.discount_rate / (100.0 * 360.0)))
+                    }
+                })
+            } else {
+                None
             }
         }
     }
@@ -64,7 +86,7 @@ mod tests {
             time: 26.0,
             maturity_date: m,
         };
-        assert_approx_eq!(999.27, v.valuation(), 0.01);
+        assert_approx_eq!(999.27, v.valuation().unwrap(), 0.01);
     }
 
     #[test]
@@ -80,7 +102,7 @@ mod tests {
             time: 26.0 * 7.0,
             maturity_date: m,
         };
-        assert_approx_eq!(999.27, v.valuation(), 0.01);
+        assert_approx_eq!(999.27, v.valuation().unwrap(), 0.01);
     }
 
     #[test]
@@ -96,6 +118,6 @@ mod tests {
             time: 26.0 * 7.0 / 30.0,
             maturity_date: m,
         };
-        assert_approx_eq!(999.27, v.valuation(), 0.01);
+        assert_approx_eq!(999.27, v.valuation().unwrap(), 0.01);
     }
 }

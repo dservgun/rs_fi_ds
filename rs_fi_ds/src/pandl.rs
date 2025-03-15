@@ -1,6 +1,7 @@
 mod pandl {
     use crate::bond::bond::Bond;
     use chrono::NaiveDate;
+    use log::{debug};
 
     pub enum RealizedForwards {
         RealizedForwards,
@@ -85,12 +86,12 @@ mod pandl {
                 sum
             });
 
-            println!("Reinvestment amount {:?}", reinvestment_amounts);
-            println!("Cash flows {:?}", cashflows);
-            println!("Cashflows sum {:?}", cashflows_sum);
-            println!("Transaction Sale price {:?} : Cashflows : {:?} Reinvestment amounts {:?} Purchase price : {:?}",
+            debug!("Reinvestment amount {:?}", reinvestment_amounts);
+            debug!("Cash flows {:?}", cashflows);
+            debug!("Cashflows sum {:?}", cashflows_sum);
+            debug!("Transaction Sale price {:?} : Cashflows : {:?} Reinvestment amounts {:?} Purchase price : {:?}",
             self.sale_price, cashflows_sum, reinvestment_amount_sum, self.purchase_price);
-            println!(
+            debug!(
                 "Payoff : {:?} - Purchase price {:?}",
                 self.sale_price + cashflows_sum + reinvestment_amount_sum,
                 self.purchase_price
