@@ -430,6 +430,11 @@ pub mod bond {
             return prefix * (f32::exp(compounded_rate / prefix) - 1.0);
         }
 
+        /// The remaining term for the 'Bond'.
+        pub fn term_remaining(self, from_date : NaiveDate) -> f32 {
+            self.maturity_date.years_since(from_date).unwrap() as  f32
+        }
+
         fn total_years(self) -> f32 {
             self.maturity_date.years_since(self.issue_date).unwrap() as f32
         }
@@ -584,6 +589,22 @@ pub mod bond {
                 None => {
                     panic!("Failed to compute ytm");
                 }
+            }
+        }
+
+        pub fn get_effective_rate(&self, input : f32) -> f32 {
+            match self.periodicity {
+                Periodicity::Annual => input,
+                Periodicity::SemiAnnual => input / 2.0,
+                Periodicity::Quarterly => input / 4.0
+            }
+
+        }
+        pub fn get_effective_coupon_payment(&self) -> f32 {
+            match self.periodicity {
+                Periodicity::Annual => self.coupon_rate,
+                Periodicity::SemiAnnual => self.coupon_rate / 2.0,
+                Periodicity::Quarterly => self.coupon_rate / 4.0
             }
         }
 
@@ -980,7 +1001,8 @@ mod tests {
             purchase_date : NaiveDate::parse_from_str("11/13/2020", "%m/%d/%Y").unwrap(),
             purchase_price : 0.0,
             sale_date : NaiveDate::parse_from_str("05/14/2021", "%m/%d/%Y").unwrap(),
-            sale_price: 0.0
+            sale_price: 0.0,
+            term_rate : Vec::new()
         };
         discount_factor.sort();
         let result = bt.compute_term_rate(&discount_factor);
@@ -992,6 +1014,42 @@ mod tests {
         assert_approx_eq!(result[5], 0.008811951);
         assert_approx_eq!(result[6], 0.01107645);
 
+    }
+
+    #[test]
+    fn test_realized_forwards() {
+        let date_format = "%m/%d/%Y";
+        let purchase_date = NaiveDate::parse_from_str("11/13/2020", "%m/%d/%Y").unwrap();
+        let b1 = create_bond(100.0,
+                "11/16/1992", "11/15/2022",
+                7.625,
+                date_format).unwrap();
+        let spread : f32  = -0.000116; // TODO: This needs to be computed separately.
+        let mut bt = BondTransaction {
+            underlying : b1,
+            purchase_date,
+            purchase_price : 114.87654,
+            sale_date : NaiveDate::parse_from_str("05/14/2021", "%m/%d/%Y").unwrap(),
+            sale_price: 114.87654,
+            term_rate : Vec::new()
+        };
+        let market_data : Vec<MarketData> = create_test_market_data();
+        let term_remaining = b1.term_remaining(purchase_date);
+        assert_approx_eq!(term_remaining, 2.0, f32::EPSILON);
+        let result : Vec<f32> = [0.001013, 0.001746, 0.002429, 0.002185].to_vec();
+        bt.set_term_rates(&result);
+        assert_approx_eq!(111.11555, bt.compute_realized_forwards(1, spread).unwrap(), 0.001);
+        let discount_factor : Vec<DiscountFactor> =
+            discount_factor(&market_data, Periodicity::SemiAnnual);
+        let mut relevant_discount_factors = Vec::new();
+        for df in discount_factor {
+            if df.term < term_remaining {
+                relevant_discount_factors.push(df);
+            }
+        }
+        let result = bt.compute_term_rate(&relevant_discount_factors);
+        bt.set_term_rates(&result);
+        assert_approx_eq!(111.29847, bt.compute_realized_forwards(0, spread).unwrap(), 0.001);
     }
 
     #[test]

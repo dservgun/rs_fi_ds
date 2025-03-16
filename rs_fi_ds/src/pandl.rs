@@ -3,6 +3,7 @@ pub mod pandl {
     use chrono::NaiveDate;
     use log::{debug};
     use crate::bond::bond::DiscountFactor;
+    use std::result::Result::*;
 
     type TermRate = f32;
 
@@ -62,17 +63,26 @@ pub mod pandl {
     /// Begin with an example of an investor
     /// buys a US 7.625s of 11/15/2022 at 114.8765 on
     /// Nov 14th, 2020. Compute the price on May 2021.
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone)]
     pub struct BondTransaction {
         pub underlying: Bond,
         pub purchase_date: NaiveDate,
         pub purchase_price: f32,
         pub sale_date: NaiveDate,
         pub sale_price: f32,
+        pub term_rate : Vec<TermRate>
     }
 
 
     impl BondTransaction {
+
+        /// Set the term structure that is relevant to the transaction.
+        pub fn set_term_rates(&mut self, term_rates : &Vec<TermRate>) {
+            self.term_rate = Vec::new();
+            for i in term_rates {
+                self.term_rate.push(*i);
+            }
+        }
 
         fn compute_individual_term(&self, previous_discount: Option<f32>, current_discount : Option<f32>) -> f32 {
             match (previous_discount, current_discount) {
@@ -96,10 +106,35 @@ pub mod pandl {
                 };
                 return result;
             }
-
-
-
         }
+
+
+        /// Compute the realized forwards
+        pub fn compute_realized_forwards(&self, forward : usize, spread : f32) ->
+            std::result::Result<f32, &str> {
+            if self.term_rate.len() == 0 {
+                Err("Term Structure is not initialized")
+            } else {
+                let mut result = 0.0;
+                let mut denom = 1.0;
+                for rate in &self.term_rate[forward..] {
+                    let effective_rate = self.underlying.get_effective_rate(rate + spread);
+                    denom = denom * (1.0 + effective_rate);
+                    let coupon_rate = self.underlying.get_effective_coupon_payment();
+                    println!("Using coupon {:?} rate {:?} : effective_rate {:?}, spread : {:?}",
+                            coupon_rate, rate, effective_rate, spread);
+                    let current = coupon_rate / denom;
+                    println!("Using coupon {:?} rate {:?} : effective_rate {:?}, spread : {:?}, denom : {:?}, current_value : {:?}",
+                            coupon_rate, rate, effective_rate, spread, denom, current);
+
+                    result += current;
+                }
+                println!("Principal {:?}", self.underlying.principal);
+                result += self.underlying.principal / denom;
+                Ok(result)
+            }
+        }
+
         /// Returns the realized returns in percentage points.
         pub fn compute_realized_return(&self) -> f32 {
             let cashflows = self
@@ -168,6 +203,7 @@ mod tests {
                     purchase_price: 114.8765,
                     sale_date: sale_date,
                     sale_price: 111.3969,
+                    term_rate : Vec::new(),
                 };
                 assert_approx_eq!(bond_transaction.compute_realized_return(), 0.002897, 0.0001);
             }
@@ -191,6 +227,7 @@ mod tests {
                     purchase_price: 114.8765,
                     sale_date: sale_date,
                     sale_price: 108.00,
+                    term_rate : Vec::new()
                 };
                 assert_approx_eq!(bond_transaction.compute_realized_return(), 0.0073, 0.0001);
             }
