@@ -15,6 +15,22 @@ pub mod bond {
         Annual,
     }
 
+    /// Evaluate the sign of a given function.
+    #[derive(PartialEq)]
+    enum Sign {
+            POSITIVE,
+            NEGATIVE
+        }
+
+    fn sign(test : f32) -> Sign {
+        if test < 0.0 {
+            Sign::NEGATIVE
+        } else {
+            Sign::POSITIVE
+        }
+    }
+
+
     #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     pub struct DiscountFactor {
         pub term: f32,
@@ -696,6 +712,53 @@ pub mod bond {
 
             return result;
         }
+
+
+        fn iterate_rates_generated(self, transaction_date : NaiveDate, market_price : f32, guess_rate : f32) -> f32 {
+            let mut result = 0.0;
+            let mut denom = 1.0;
+            let intervals: &Vec<NaiveDate> = &self.periodicity().into_iter().filter(|x| *x > transaction_date)
+                .filter(|x| *x <= self.maturity_date).collect();
+            println!("Relevant intervals {:?}", intervals);
+            for _term in 0..intervals.len() {
+                denom = denom * (1.0 + self.get_effective_rate(guess_rate));
+                println!("Using coupon {:?} - {:?}", self.get_effective_rate(guess_rate), self.coupon_payment());
+                result += self.coupon_payment() / denom;
+            }
+            result += self.principal / denom;
+            result - market_price
+        }
+
+        /// Compute the yield-to-maturity for the bond using start and end points
+        /// where the sign changes with respect to the market price.
+        /// ytm is being computed using some narrow constraints to compute the value.
+        /// TODO: Need to replace the bisection with a library.
+        pub fn ytm(self, transaction_date : NaiveDate, market_price : f32, mut low : f32, mut high : f32) -> f32 {
+            let mut iter = 1;
+            let max_iter = 100;
+            let mut x;
+            let mut current = 0.0;
+            let init_a = self.iterate_rates_generated(transaction_date, market_price, low);
+            let init_b = self.iterate_rates_generated(transaction_date, market_price, high);
+            while iter < max_iter {
+                println!("Current {:?}", current);
+                current = (low + high) / 2.0;
+                x = self.iterate_rates_generated(transaction_date, market_price, current);
+                println!("{:?} : {:?} : {:?} : {:?}", current, x, init_a, init_b);
+                if  high - low / 2.0 < f32::EPSILON {
+                    println!("{:?}", current);
+                    break;
+                }
+                if sign(x) == sign(init_a) {
+                    low = current;
+                } else {
+                    high = current;
+                }
+                iter = iter + 1;
+            };
+            current
+        }
+
     }
 
     fn get_months_as_f32(payment_schedule: Periodicity) -> f32 {
@@ -1164,5 +1227,13 @@ mod tests {
                 panic!("Failed to create bond");
             }
         }
+    }
+
+    #[test]
+    fn test_ytm() {
+        let b1 = create_bond(100.0, "05/15/2012", "11/15/2022", 0.07625, "%m/%d/%Y").unwrap();
+        let date = NaiveDate::parse_from_str("05/15/2021", "%m/%d/%Y").unwrap();
+        let ytd = b1.ytm(date, 111.3969, 0.00, 0.01);
+        assert_approx_eq!(0.000252, ytd);
     }
 }

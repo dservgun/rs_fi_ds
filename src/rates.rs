@@ -98,8 +98,11 @@ pub mod rates {
 
 #[cfg(test)]
 mod tests {
+    use core::f64;
+
     use crate::rates::rates::NextSettlementDate;
     use chrono::NaiveDate;
+    use assert_approx_eq::assert_approx_eq;
     #[test]
     fn test_next_settlement_date() {
         let s1 = NextSettlementDate {
@@ -117,5 +120,60 @@ mod tests {
         calendar.push(s2);
         let map = s1.get_settlement_dates(calendar);
         println!("Map {:?}", map);
+    }
+
+    fn test_rate_generated(coupon_payment : f64, face_value : f64, term_rate : f64, terms : i32, target : f64) -> f64 {
+        let mut result = 0.0;
+        let mut denom = 1.0;
+        for _term in 0..terms {
+            denom = denom * (1.0 + term_rate / 2.0);
+            result += coupon_payment / denom;
+        }
+        result += face_value / denom;
+        result - target
+    }
+
+    #[derive(PartialEq)]
+enum Sign {
+        POSITIVE,
+        NEGATIVE
+    }
+
+    fn sign(test : f64) -> Sign {
+        if test < 0.0 {
+            Sign::NEGATIVE
+        } else {
+            Sign::POSITIVE
+        }
+    }
+
+    #[test]
+    fn test_rates_ytd() {
+        let target = 111.3969;
+        let mut iter = 1;
+        let max_iter = 100;
+        let mut x = 0.0;
+        let mut low = 0.00;
+        let mut high = 0.01;
+        let mut current = 0.0;
+        let init_a = test_rate_generated(3.8125, 100.00, low, 3, target);
+        let init_b = test_rate_generated(3.8125, 100.00, high, 3, target);
+        while iter < max_iter {
+            println!("Current {:?}", current);
+            current = (low + high) / 2.0;
+            x = test_rate_generated(3.8125, 100.00, current, 3, target);
+            println!("{:?} : {:?} : {:?} : {:?}", current, x, init_a, init_b);
+            if  high - low / 2.0 < f64::EPSILON {
+                println!("{:?}", current);
+                break;
+            }
+            if sign(x) == sign(init_a) {
+                low = current;
+            } else {
+                high = current;
+            }
+            iter = iter + 1;
+        }
+        assert_approx_eq!(0.00025155303361024117, current);
     }
 }
