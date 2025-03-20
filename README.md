@@ -28,10 +28,6 @@ The test cases follow the profit and loss attribution based
 
 Incorporate solvers to solve the yield-to-maturity of a fixed income cashflow.
 
-###
-
-![Master](./github/workflows/rust.yml/)
-
 
 ####  Why Rust?
 
