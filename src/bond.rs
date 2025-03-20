@@ -729,17 +729,23 @@ pub mod bond {
             result - market_price
         }
 
+        /// Yield-to-Maturity is the overall interest earned by an investor who buys
+        /// a bond at market price and holds it until maturity. It is also defined as the
+        /// discount rate at which the sum of all future cashflows equals the price of the bond.
         /// Compute the yield-to-maturity for the bond using start and end points
         /// where the sign changes with respect to the market price.
         /// ytm is being computed using some narrow constraints to compute the value.
         /// TODO: Need to replace the bisection with a library.
-        pub fn ytm(self, transaction_date : NaiveDate, market_price : f32, mut low : f32, mut high : f32) -> f32 {
+        pub fn ytm(self, transaction_date : NaiveDate, market_price : f32, mut low : f32, mut high : f32) -> Result<f32, String> {
             let mut iter = 1;
             let max_iter = 100;
             let mut x;
             let mut current = 0.0;
             let init_a = self.iterate_rates_generated(transaction_date, market_price, low);
             let init_b = self.iterate_rates_generated(transaction_date, market_price, high);
+            if sign(init_a) == sign(init_b) {
+                return Err("Endpoints don't have y = 0 in its range. Can't solve this.".to_string());
+            }
             while iter < max_iter {
                 println!("Current {:?}", current);
                 current = (low + high) / 2.0;
@@ -756,9 +762,8 @@ pub mod bond {
                 }
                 iter = iter + 1;
             };
-            current
+            Ok(current)
         }
-
     }
 
     fn get_months_as_f32(payment_schedule: Periodicity) -> f32 {
@@ -1233,7 +1238,7 @@ mod tests {
     fn test_ytm() {
         let b1 = create_bond(100.0, "05/15/2012", "11/15/2022", 0.07625, "%m/%d/%Y").unwrap();
         let date = NaiveDate::parse_from_str("05/15/2021", "%m/%d/%Y").unwrap();
-        let ytd = b1.ytm(date, 111.3969, 0.00, 0.01);
+        let ytd = b1.ytm(date, 111.3969, 0.00, 0.01).unwrap();
         assert_approx_eq!(0.000252, ytd);
     }
 }
