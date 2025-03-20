@@ -1,5 +1,3 @@
-##Fixed Income Components
-
 ### Introduction
 
 A library to model various fixed income securities including
@@ -29,6 +27,10 @@ The test cases follow the profit and loss attribution based
 #### Computing Yield (To Be Done)
 
 Incorporate solvers to solve the yield-to-maturity of a fixed income cashflow.
+
+###
+
+![example branch parameter](https://github.com/github/docs/actions/workflows/rust.yml/)
 
 
 ####  Why Rust?
