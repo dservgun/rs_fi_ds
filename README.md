@@ -30,7 +30,7 @@ Incorporate solvers to solve the yield-to-maturity of a fixed income cashflow.
 
 ###
 
-![example branch parameter](https://github.com/github/docs/actions/workflows/rust.yml/)
+![Master](./github/workflows/rust.yml/)
 
 
 ####  Why Rust?
