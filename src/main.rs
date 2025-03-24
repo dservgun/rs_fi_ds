@@ -3,6 +3,7 @@ mod bond;
 mod data_loader;
 mod interest_rate_swap;
 mod pandl;
+mod payment;
 mod rates;
 mod restful_service;
 mod tbills;

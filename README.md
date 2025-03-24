@@ -11,12 +11,14 @@ A library to model various fixed income securities including
 
 #### Fixed income products
 
-	. Bond
+	. Bonds
 	. Notes
 	. Interest rate swaps.
 	. T-Bills
 	. Corporate bonds.
 
+
+##### Bonds
 
 #### P and L Attribution
 The test cases follow the profit and loss attribution based
@@ -24,12 +26,22 @@ The test cases follow the profit and loss attribution based
 	. Realized forwards
 	. Spread (including option adjusted spreads).
 
-#### Computing Yield (To Be Done)
 
-Incorporate solvers to solve the yield-to-maturity of a fixed income cashflow.
+#### Bugs/Issues
+
+Incorporate solvers to solve the yield-to-maturity of a fixed income cashflow. Solvers implemented are basic bisection method and may result in NaN.
+
+
+#### References
+
+	. The Handbook of Fixed Income Securities - Seventh Edition, Frank J. Fabrozzi, Editor, with assistance of Steven V. Mann.
+
+
+
 
 
 ####  Why Rust?
 
-Rust has too many advantages to ignore for financial computations.
+[Rust](http://www.rust-lang.org) has too many advantages to ignore for financial computations.
+
 

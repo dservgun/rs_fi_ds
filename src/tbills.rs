@@ -23,14 +23,12 @@ mod tbills {
         pub maturity_date: NaiveDate,
     }
 
-
     impl TBills {
-
         pub fn normalize_days(&self) -> f32 {
             match self.time_interval_type {
                 TimeIntervalType::Weeks => self.time * 7.0,
                 TimeIntervalType::Days => self.time,
-                TimeIntervalType::Months => self.time * 30.0
+                TimeIntervalType::Months => self.time * 30.0,
             }
         }
         pub fn is_time_valid(&self) -> bool {
@@ -43,14 +41,14 @@ mod tbills {
         }
         pub fn valuation(&self) -> Option<f32> {
             if self.is_time_valid() {
-                Some(
-                    match self.time_interval_type {
+                Some(match self.time_interval_type {
                     TimeIntervalType::Weeks => {
                         self.face_value
                             * (1.0 - (self.time * 7.0) * (self.discount_rate / (100.0 * 360.0)))
                     }
                     TimeIntervalType::Days => {
-                        self.face_value * (1.0 - (self.time) * (self.discount_rate / (100.0 * 360.0)))
+                        self.face_value
+                            * (1.0 - (self.time) * (self.discount_rate / (100.0 * 360.0)))
                     }
                     TimeIntervalType::Months => {
                         self.face_value

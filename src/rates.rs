@@ -101,8 +101,8 @@ mod tests {
     use core::f64;
 
     use crate::rates::rates::NextSettlementDate;
-    use chrono::NaiveDate;
     use assert_approx_eq::assert_approx_eq;
+    use chrono::NaiveDate;
     #[test]
     fn test_next_settlement_date() {
         let s1 = NextSettlementDate {
@@ -122,7 +122,13 @@ mod tests {
         println!("Map {:?}", map);
     }
 
-    fn test_rate_generated(coupon_payment : f64, face_value : f64, term_rate : f64, terms : i32, target : f64) -> f64 {
+    fn test_rate_generated(
+        coupon_payment: f64,
+        face_value: f64,
+        term_rate: f64,
+        terms: i32,
+        target: f64,
+    ) -> f64 {
         let mut result = 0.0;
         let mut denom = 1.0;
         for _term in 0..terms {
@@ -134,12 +140,12 @@ mod tests {
     }
 
     #[derive(PartialEq)]
-enum Sign {
+    enum Sign {
         POSITIVE,
-        NEGATIVE
+        NEGATIVE,
     }
 
-    fn sign(test : f64) -> Sign {
+    fn sign(test: f64) -> Sign {
         if test < 0.0 {
             Sign::NEGATIVE
         } else {
@@ -163,7 +169,7 @@ enum Sign {
             current = (low + high) / 2.0;
             x = test_rate_generated(3.8125, 100.00, current, 3, target);
             println!("{:?} : {:?} : {:?} : {:?}", current, x, init_a, init_b);
-            if  high - low / 2.0 < f64::EPSILON {
+            if high - low / 2.0 < f64::EPSILON {
                 println!("{:?}", current);
                 break;
             }
