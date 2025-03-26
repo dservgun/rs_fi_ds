@@ -1,19 +1,16 @@
 //! This module assumes that the bonds are option-free, therefore are non-callable or non-putable.
 pub mod bond {
-    use std::cell::Cell;
-    use std::cell::Ref;
-    use std::cell::RefCell;
     use std::boxed::Box;
-    use chrono::{Datelike, Months, NaiveDate, ParseError};
-    use filters::filter::Filter;
+    use chrono::{Datelike, NaiveDate, Months, ParseError};
     use log::debug;
     use serde::{Deserialize, Serialize};
     use std::cmp::Ordering;
+    use filters::filter::Filter;
     use std::cmp::{Eq, Ord, PartialEq, PartialOrd};
 
     /// Most products support annual, quarterly and semiannual payments.
     /// Continuous and Daily compounding are also supported.
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     pub enum Periodicity {
         Quarterly,
         SemiAnnual,
@@ -154,7 +151,7 @@ pub mod bond {
     ///     . The duration of a bond approximately equals its term.
     ///     . The duration of a par bond increases with term but increases less linearly with term.
     ///     . The duration of a premium bond is less than the duration of a par bond.
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     pub struct BondMetrics {
         pub dv01: f32,
         pub convexity: f32,
@@ -174,7 +171,7 @@ pub mod bond {
         pub message_code: ErrorType,
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Issuer {
         pub issuer: String,
     }
@@ -249,7 +246,7 @@ pub mod bond {
     /// Where N is the periodicity of the bond; bonds pay coupons if any, semi-annually. This is true for
     /// most bonds with 10, 20 and 30 years maturity.
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Bond {
         pub issuer: Option<Issuer>,
         pub principal: f32,
