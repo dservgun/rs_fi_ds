@@ -1,4 +1,9 @@
+//! This module assumes that the bonds are option-free, therefore are non-callable or non-putable.
 pub mod bond {
+    use std::cell::Cell;
+    use std::cell::Ref;
+    use std::cell::RefCell;
+    use std::boxed::Box;
     use chrono::{Datelike, Months, NaiveDate, ParseError};
     use filters::filter::Filter;
     use log::debug;
@@ -330,15 +335,15 @@ pub mod bond {
     }
 
     /// A convenience function that creates a bond with a specific [`Periodicity`]
-    pub fn create_bond_with_periodicity(
+    pub fn create_bond_with_periodicity<'a>(
         principal: f32,
-        issue_date: &str,
-        maturity_date: &str,
+        issue_date: &'a str,
+        maturity_date: &'a str,
         rate: f32,
         reinvestment_interest_rate: f32,
         periodicity: Periodicity,
-        date_format: &str,
-    ) -> Result<Bond, BondError> {
+        date_format: &'a str,
+    ) -> Result<Box<Bond>, BondError> {
         let m_date: Result<NaiveDate, ParseError> =
             NaiveDate::parse_from_str(maturity_date, date_format);
         let i_date: Result<NaiveDate, ParseError> =
@@ -354,7 +359,8 @@ pub mod bond {
                     periodicity,
                     reinvestment_interest: Some(reinvestment_interest_rate),
                 };
-                return Ok(b1);
+                let r = Box::new(b1);
+                return Ok(r);
             }
             _ => {
                 return Err(BondError {
@@ -366,13 +372,13 @@ pub mod bond {
     }
 
     /// Creates a bond with `SemiAnnual` periodicity.
-    pub fn create_bond(
+    pub fn create_bond<'a>(
         principal: f32,
-        issue_date: &str,
-        maturity_date: &str,
+        issue_date: &'a str,
+        maturity_date: &'a str,
         rate: f32,
-        date_format: &str,
-    ) -> Result<Bond, BondError> {
+        date_format: &'a str
+    ) -> Result<Box<Bond>, BondError> {
         let m_date: Result<NaiveDate, ParseError> =
             NaiveDate::parse_from_str(maturity_date, date_format);
         let i_date: Result<NaiveDate, ParseError> =
@@ -389,7 +395,7 @@ pub mod bond {
                     periodicity: Periodicity::SemiAnnual,
                     reinvestment_interest: None,
                 };
-                return Ok(b1);
+                return Ok(Box::new(b1));
             }
             _ => {
                 return Err(BondError {
@@ -463,7 +469,7 @@ pub mod bond {
             1.0 / (*self).total_years() * (f32::ln((*self).principal / market_price))
         }
 
-        pub fn rate_for_periodicity(self, periodicity: Periodicity, market_price: f32) -> f32 {
+        pub fn rate_for_periodicity(&self, periodicity: Periodicity, market_price: f32) -> f32 {
             let compounded_rate = self.infinitely_compounded_rate(market_price);
             let prefix = match periodicity {
                 Periodicity::Quarterly => 4.0,
@@ -926,41 +932,43 @@ mod tests {
     use assert_approx_eq::assert_approx_eq;
     use chrono::{Datelike, NaiveDate, ParseError};
 
-    fn create_zcb_principal_maturity(
+    fn create_zcb_principal_maturity<'a>(
         principal: f32,
-        issue_date: &str,
-        mat_date: &str,
-    ) -> Result<Bond, BondError> {
+        issue_date: &'a str,
+        mat_date: &'a str,
+    ) -> Result<Box<Bond>, BondError> {
         // return create_bond(principal, issue_date, mat_date, 0.0, "%m/%d/%Y");
         return Issue_Bond! (with principal issue_date mat_date 0.0);
     }
 
-    fn create_zcb(principal: f32) -> Result<Bond, BondError> {
+    fn create_zcb<'a> (principal: f32) -> Result<Box<Bond>, BondError> {
         return Issue_Bond! (with principal "04/15/2021" "04/15/2051" 0.0);
     }
 
-    fn create_test_bond() -> Result<Bond, BondError> {
+    fn create_test_bond<'a>() -> Result<Box<Bond>, BondError> {
         let principal = 100.0;
         return Issue_Bond! (with principal "04/15/2014" "05/15/2024" 2.5);
     }
 
     #[test]
     fn test_bond_sort() {
-        let b1: Result<Bond, BondError> = Issue_Bond!(using 100.0 "04/15/2014" "05/15/2024" 2.5);
+        let b1: Result<Box<Bond>, BondError> = Issue_Bond!(using 100.0 "04/15/2014" "05/15/2024" 2.5);
+        let b3: Result<Box<Bond>, BondError> = Issue_Bond!(using 100.0 "04/15/2014" "05/15/2024" 2.5);
 
-        let b2: Result<Bond, BondError> = Issue_Bond!(using 100.0 "03/15/2014" "05/15/2024" 2.5);
+        let b2: Result<Box<Bond>, BondError> = Issue_Bond!(using 100.0 "03/15/2014" "05/15/2024" 2.5);
         let mut bonds: Vec<Bond> = Vec::new();
         match (b1, b2) {
             (Ok(bond1), Ok(bond2)) => {
-                bonds.push(bond1);
-                bonds.push(bond2);
+                bonds.push(*bond1);
+                bonds.push(*bond2);
             }
             _ => {
                 panic!("Test failed.");
             }
         }
         bonds.sort();
-        assert_eq!(b1.unwrap(), bonds[1]);
+
+        assert_eq!(*b3.unwrap(), bonds[1]);
     }
 
     fn create_test_market_data() -> Vec<MarketData> {
@@ -1110,7 +1118,7 @@ mod tests {
             discount_factor(&market_data, Periodicity::SemiAnnual);
         let b1 = create_zcb(1000.0).unwrap();
         let bt = BondTransaction {
-            underlying: b1,
+            underlying: &*b1,
             purchase_date: NaiveDate::parse_from_str("11/13/2020", "%m/%d/%Y").unwrap(),
             purchase_price: 0.0,
             sale_date: NaiveDate::parse_from_str("05/14/2021", "%m/%d/%Y").unwrap(),
@@ -1135,7 +1143,7 @@ mod tests {
         let b1 = create_bond(100.0, "11/16/1992", "11/15/2022", 7.625, date_format).unwrap();
         let spread: f32 = -0.000116; // TODO: This needs to be computed separately.
         let mut bt = BondTransaction {
-            underlying: b1,
+            underlying: &*b1,
             purchase_date,
             purchase_price: 114.87654,
             sale_date: NaiveDate::parse_from_str("05/14/2021", "%m/%d/%Y").unwrap(),
@@ -1143,7 +1151,7 @@ mod tests {
             term_rate: Vec::new(),
         };
         let market_data: Vec<MarketData> = create_test_market_data();
-        let term_remaining = b1.term_remaining(purchase_date);
+        let term_remaining = (*b1).clone().term_remaining(purchase_date);
         assert_approx_eq!(term_remaining, 2.0, f32::EPSILON);
         let result: Vec<f32> = [0.001013, 0.001746, 0.002429, 0.002185].to_vec();
         bt.set_term_rates(&result);
@@ -1270,7 +1278,7 @@ mod tests {
             Result::Ok(val) => {
                 let inf_compounded_rate = val.infinitely_compounded_rate(60.0);
                 assert_approx_eq!(inf_compounded_rate, 0.05108256, f32::EPSILON);
-                let mut rate_for_per = val.rate_for_periodicity(Periodicity::Quarterly, 60.0);
+                let mut rate_for_per = (*val).rate_for_periodicity(Periodicity::Quarterly, 60.0);
                 assert_approx_eq!(rate_for_per, 0.0514102, f32::EPSILON);
                 rate_for_per = val.rate_for_periodicity(Periodicity::Annual, 60.00);
                 assert_approx_eq!(rate_for_per, 0.052409768);

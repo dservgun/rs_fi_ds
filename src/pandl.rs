@@ -64,8 +64,8 @@ pub mod pandl {
     /// buys a US 7.625s of 11/15/2022 at 114.8765 on
     /// Nov 14th, 2020. Compute the price on May 2021.
     #[derive(Debug, Clone)]
-    pub struct BondTransaction {
-        pub underlying: Bond,
+    pub struct BondTransaction<'a> {
+        pub underlying: &'a Bond,
         pub purchase_date: NaiveDate,
         pub purchase_price: f32,
         pub sale_date: NaiveDate,
@@ -73,10 +73,11 @@ pub mod pandl {
         pub term_rate: Vec<TermRate>,
     }
 
-    impl BondTransaction {
+    impl<'a> BondTransaction<'a> {
         /// Set the term structure that is relevant to the transaction.
         pub fn set_term_rates(&mut self, term_rates: &Vec<TermRate>) {
-            self.term_rate = Vec::new();
+            // self.term_rate = Vec::new();
+            self.term_rate.clear();
             for i in term_rates {
                 self.term_rate.push(*i);
             }
@@ -112,7 +113,7 @@ pub mod pandl {
 
         /// Compute the realized forwards
         pub fn compute_realized_forwards(
-            &self,
+            &'a self,
             forward: usize,
             spread: f32,
         ) -> std::result::Result<f32, &str> {
@@ -183,7 +184,7 @@ mod tests {
     use crate::bond::bond::*;
     use crate::pandl::pandl::*;
 
-    fn create_test_bond(interest: f32) -> Result<Bond, BondError> {
+    fn create_test_bond(interest: f32) -> Result<Box<Bond>, BondError> {
         return create_bond_with_periodicity(
             100.0,
             String::from("11/15/2012").as_str(),
@@ -204,7 +205,7 @@ mod tests {
         match (b1, p_date_opt, s_date_opt) {
             (Result::Ok(val), Result::Ok(purchase_date), Result::Ok(sale_date)) => {
                 let bond_transaction: BondTransaction = BondTransaction {
-                    underlying: val,
+                    underlying: &*val,
                     purchase_date: purchase_date,
                     purchase_price: 114.8765,
                     sale_date: sale_date,
@@ -228,7 +229,7 @@ mod tests {
         match (b1, p_date_opt, s_date_opt) {
             (Result::Ok(val), Result::Ok(purchase_date), Result::Ok(sale_date)) => {
                 let bond_transaction: BondTransaction = BondTransaction {
-                    underlying: val,
+                    underlying: &*val,
                     purchase_date: purchase_date,
                     purchase_price: 114.8765,
                     sale_date: sale_date,

@@ -116,6 +116,7 @@ mod tests {
             time: 26.0 * 7.0 / 30.0,
             maturity_date: m,
         };
+        assert_eq!(true, v.is_time_valid());
         assert_approx_eq!(999.27, v.valuation().unwrap(), 0.01);
     }
 }
