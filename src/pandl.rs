@@ -1,8 +1,8 @@
 pub mod pandl {
     use crate::bond::bond::Bond;
-    use chrono::NaiveDate;
-    use log::{debug};
     use crate::bond::bond::DiscountFactor;
+    use chrono::NaiveDate;
+    use log::debug;
     use std::result::Result::*;
 
     type TermRate = f32;
@@ -64,31 +64,34 @@ pub mod pandl {
     /// buys a US 7.625s of 11/15/2022 at 114.8765 on
     /// Nov 14th, 2020. Compute the price on May 2021.
     #[derive(Debug, Clone)]
-    pub struct BondTransaction {
-        pub underlying: Bond,
+    pub struct BondTransaction<'a> {
+        pub underlying: &'a Bond,
         pub purchase_date: NaiveDate,
         pub purchase_price: f32,
         pub sale_date: NaiveDate,
         pub sale_price: f32,
-        pub term_rate : Vec<TermRate>
+        pub term_rate: Vec<TermRate>,
     }
 
-
-    impl BondTransaction {
-
+    impl<'a> BondTransaction<'a> {
         /// Set the term structure that is relevant to the transaction.
-        pub fn set_term_rates(&mut self, term_rates : &Vec<TermRate>) {
-            self.term_rate = Vec::new();
+        pub fn set_term_rates(&mut self, term_rates: &Vec<TermRate>) {
+            // self.term_rate = Vec::new();
+            self.term_rate.clear();
             for i in term_rates {
                 self.term_rate.push(*i);
             }
         }
 
-        fn compute_individual_term(&self, previous_discount: Option<f32>, current_discount : Option<f32>) -> f32 {
+        fn compute_individual_term(
+            &self,
+            previous_discount: Option<f32>,
+            current_discount: Option<f32>,
+        ) -> f32 {
             match (previous_discount, current_discount) {
                 (None, Some(discount)) => ((1.0 / discount) - 1.0) * 2.0,
-                (Some(d1), Some(d2)) => ((d1/d2) - 1.0) * 2.0,
-                _                   => 0.0
+                (Some(d1), Some(d2)) => ((d1 / d2) - 1.0) * 2.0,
+                _ => 0.0,
             }
         }
         /// Sorted discount factors vectors starting from the earliest term.
@@ -96,22 +99,24 @@ pub mod pandl {
             if discount_factors.len() == 0 {
                 Vec::new()
             } else {
-                let mut prev_discount : Option<f32> = None;
+                let mut prev_discount: Option<f32> = None;
                 let mut result = Vec::new();
                 for discount_factor in discount_factors {
-                    let current = self.compute_individual_term(prev_discount, Some(discount_factor.discount));
+                    let current =
+                        self.compute_individual_term(prev_discount, Some(discount_factor.discount));
                     result.push(current);
                     prev_discount = Some(discount_factor.discount);
-
-                };
+                }
                 return result;
             }
         }
 
-
         /// Compute the realized forwards
-        pub fn compute_realized_forwards(&self, forward : usize, spread : f32) ->
-            std::result::Result<f32, &str> {
+        pub fn compute_realized_forwards(
+            &'a self,
+            forward: usize,
+            spread: f32,
+        ) -> std::result::Result<f32, &str> {
             if self.term_rate.len() == 0 {
                 Err("Term Structure is not initialized")
             } else {
@@ -121,8 +126,10 @@ pub mod pandl {
                     let effective_rate = self.underlying.get_effective_rate(rate + spread);
                     denom = denom * (1.0 + effective_rate);
                     let coupon_rate = self.underlying.get_effective_coupon_payment();
-                    println!("Using coupon {:?} rate {:?} : effective_rate {:?}, spread : {:?}",
-                            coupon_rate, rate, effective_rate, spread);
+                    println!(
+                        "Using coupon {:?} rate {:?} : effective_rate {:?}, spread : {:?}",
+                        coupon_rate, rate, effective_rate, spread
+                    );
                     let current = coupon_rate / denom;
                     println!("Using coupon {:?} rate {:?} : effective_rate {:?}, spread : {:?}, denom : {:?}, current_value : {:?}",
                             coupon_rate, rate, effective_rate, spread, denom, current);
@@ -177,7 +184,7 @@ mod tests {
     use crate::bond::bond::*;
     use crate::pandl::pandl::*;
 
-    fn create_test_bond(interest: f32) -> Result<Bond, BondError> {
+    fn create_test_bond(interest: f32) -> Result<Box<Bond>, BondError> {
         return create_bond_with_periodicity(
             100.0,
             String::from("11/15/2012").as_str(),
@@ -198,12 +205,12 @@ mod tests {
         match (b1, p_date_opt, s_date_opt) {
             (Result::Ok(val), Result::Ok(purchase_date), Result::Ok(sale_date)) => {
                 let bond_transaction: BondTransaction = BondTransaction {
-                    underlying: val,
+                    underlying: &*val,
                     purchase_date: purchase_date,
                     purchase_price: 114.8765,
                     sale_date: sale_date,
                     sale_price: 111.3969,
-                    term_rate : Vec::new(),
+                    term_rate: Vec::new(),
                 };
                 assert_approx_eq!(bond_transaction.compute_realized_return(), 0.002897, 0.0001);
             }
@@ -222,12 +229,12 @@ mod tests {
         match (b1, p_date_opt, s_date_opt) {
             (Result::Ok(val), Result::Ok(purchase_date), Result::Ok(sale_date)) => {
                 let bond_transaction: BondTransaction = BondTransaction {
-                    underlying: val,
+                    underlying: &*val,
                     purchase_date: purchase_date,
                     purchase_price: 114.8765,
                     sale_date: sale_date,
                     sale_price: 108.00,
-                    term_rate : Vec::new()
+                    term_rate: Vec::new(),
                 };
                 assert_approx_eq!(bond_transaction.compute_realized_return(), 0.0073, 0.0001);
             }

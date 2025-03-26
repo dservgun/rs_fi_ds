@@ -45,7 +45,6 @@ mod interest_rate_swap {
     }
     impl Eq for InterestRateData {}
 
-
     fn compute_variable_side(irs: &IRS, overnight_data: &Vec<InterestRateData>) -> f32 {
         let mut result: f32 = 0.0;
         let days_in_year: f32 = match irs.accounting_convention {
@@ -84,9 +83,8 @@ mod interest_rate_swap {
             AccountingConvention::AC365 => {
                 let fixed_side: f32 =
                     irs.face_value * (1.0 + (irs.fixed_rate / 100.0) * days / 365.0);
-                let variable_side: f32 = (irs.face_value
-                    * compute_variable_side(irs, overnight_data))
-                    - irs.face_value;
+                let variable_side: f32 =
+                    (irs.face_value * compute_variable_side(irs, overnight_data)) - irs.face_value;
                 return variable_side - fixed_side;
             }
         }
